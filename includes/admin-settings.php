@@ -68,28 +68,31 @@ function dsrw_admin_scripts($hook) {
         return;
     }
 
-    // --- NUEVO SCRIPT ---
+    // --- SCRIPT DE MEDIOS ---
     // Carga los scripts de la biblioteca de medios de WordPress
     wp_enqueue_media();
-    // --- FIN NUEVO SCRIPT ---
+    // --- FIN SCRIPT DE MEDIOS ---
 
      // Encolar la hoja de estilo
     wp_enqueue_style(
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0.1', 
+        '1.0.2', // Subir versión para caché
         'all'
     );
 
+    // --- MODIFICACIÓN DE SCRIPT ---
     // Encolar el script
     wp_enqueue_script(
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
-        array('jquery'), 
-        '1.0.1', 
+        // ¡LA SOLUCIÓN! Añadimos 'media-models' como dependencia
+        array('jquery', 'media-models'), 
+        '1.0.2', // Subir versión para caché
         true
     );
+    // --- FIN MODIFICACIÓN DE SCRIPT ---
 
     // Pasar datos al script: la URL de admin-ajax y un nonce
     wp_localize_script('dsrw-admin-js', 'dsrwAjax', array(
