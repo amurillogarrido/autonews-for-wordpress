@@ -8,12 +8,49 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Evita acceso directo.
 }
 
+// --- ¡NUEVA FUNCIÓN! ---
+/**
+ * Sanitiza el array de mapeo de categorías de feed.
+ * Asegura que solo se guarden valores válidos ('', 'none', o IDs numéricos).
+ *
+ * @param array $input El array recibido del formulario.
+ * @return array El array sanitizado.
+ */
+function sanitize_feed_categories_array( $input ) {
+    $sanitized = array();
+    if ( is_array( $input ) ) {
+        foreach ( $input as $index => $value ) {
+            // Limpia el valor primero (quita espacios, etc.)
+            $clean_value = sanitize_text_field( trim( $value ) );
+            $index_int = intval( $index ); // Asegura que el índice sea numérico
+
+            // Permite cadena vacía '', 'none', o un entero positivo (ID de categoría)
+            if ( $clean_value === '' || $clean_value === 'none' || absint( $clean_value ) > 0 ) {
+                $sanitized[ $index_int ] = $clean_value;
+            } else {
+                 // Si no es válido, guarda cadena vacía (opción por defecto 'Automática')
+                 $sanitized[ $index_int ] = '';
+            }
+        }
+    }
+    // Reindexar el array por si acaso (aunque no debería ser necesario con índices numéricos)
+    // return array_values($sanitized); // Comentado: Mejor mantener los índices originales que vienen del formulario
+    return $sanitized;
+}
+// --- FIN NUEVA FUNCIÓN ---
+
+
 /**
  * Registrar configuraciones y ajustes del plugin.
  */
 function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_rss_urls', 'dsrw_validate_rss_urls' );
-    register_setting( 'dsrw_options_group', 'dsrw_feed_categories' );
+    
+    // --- MODIFICACIÓN AQUÍ ---
+    // Usamos la nueva función de sanitización para el mapeo de categorías
+    register_setting( 'dsrw_options_group', 'dsrw_feed_categories', 'sanitize_feed_categories_array' );
+    // --- FIN MODIFICACIÓN ---
+
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_key', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_base', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_num_articulos', 'absint' );
@@ -22,12 +59,7 @@ function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_default_author', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_selected_language', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_enable_thumbnail_generator', 'sanitize_text_field' );
-    
-    // --- NUEVO AJUSTE ---
-    // Registramos el nuevo campo para guardar el ID de la imagen de fondo
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_custom_bg_id', 'absint' ); 
-    // --- FIN NUEVO AJUSTE ---
-
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_bg_color', 'sanitize_hex_color' );
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_text_color', 'sanitize_hex_color' );
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_font_size', 'absint' );
@@ -68,31 +100,26 @@ function dsrw_admin_scripts($hook) {
         return;
     }
 
-    // --- SCRIPT DE MEDIOS ---
     // Carga los scripts de la biblioteca de medios de WordPress
     wp_enqueue_media();
-    // --- FIN SCRIPT DE MEDIOS ---
 
      // Encolar la hoja de estilo
     wp_enqueue_style(
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0.2', // Subir versión para caché
+        '1.0.2', 
         'all'
     );
 
-    // --- MODIFICACIÓN DE SCRIPT ---
     // Encolar el script
     wp_enqueue_script(
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
-        // ¡LA SOLUCIÓN! Añadimos 'media-models' como dependencia
         array('jquery', 'media-models'), 
-        '1.0.2', // Subir versión para caché
+        '1.0.2', 
         true
     );
-    // --- FIN MODIFICACIÓN DE SCRIPT ---
 
     // Pasar datos al script: la URL de admin-ajax y un nonce
     wp_localize_script('dsrw-admin-js', 'dsrwAjax', array(
@@ -128,6 +155,12 @@ function dsrw_settings_page() {
     ) ) );
     $total_feeds = count( array_filter( array_map( 'trim', explode( "\n", get_option('dsrw_rss_urls') ) ) ) );
     $selected_language = get_option( 'dsrw_selected_language', 'es' );
+    
+    // Debug: Muestra el valor guardado (puedes borrar esto después)
+    // echo '<pre>Valor guardado en dsrw_feed_categories: ';
+    // var_dump(get_option('dsrw_feed_categories'));
+    // echo '</pre>';
+
     ?>
 
     <div class="wrap dsrw-settings-page">
@@ -175,28 +208,40 @@ https://otro-sitio.com/feed"
                     <p><?php esc_html_e( 'Asigna una categoría de WordPress a cada feed RSS.', 'autonews-rss-rewriter' ); ?></p>
                     <?php
                     $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
-                    $feed_categories = get_option( 'dsrw_feed_categories', array() );
+                    $feed_categories = get_option( 'dsrw_feed_categories', array() ); // Obtiene el array guardado
                     $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+                    
+                    // Asegúrate de que $feed_categories sea un array
+                    if (!is_array($feed_categories)) {
+                        $feed_categories = array();
+                    }
+
                     foreach ( $rss_urls as $index => $url ) :
+                        // Obtiene el valor guardado para este índice específico, o '' si no existe
+                        $saved_value = isset($feed_categories[$index]) ? $feed_categories[$index] : ''; 
                         ?>
                         <div class="dsrw-feed-mapping">
-                            <label for="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]"><?php echo esc_html( $url ); ?></label>
+                            <label for="dsrw_feed_categories_<?php echo esc_attr( $index ); ?>"><?php echo esc_html( $url ); ?></label>
                             <?php
                             $categories = get_categories( array( 'hide_empty' => false ) );
                             ?>
-                            <select name="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]" id="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]">
-                                <option value=""><?php esc_html_e( '-- Categoría Automática (IA) --', 'autonews-rss-rewriter' ); ?></option>
+                            <select name="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]" id="dsrw_feed_categories_<?php echo esc_attr( $index ); ?>">
+                                <option value="" <?php selected( $saved_value, '' ); ?>>
+                                    <?php esc_html_e( '-- Categoría Automática (IA) --', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                
                                 <?php foreach ( $categories as $category ) : ?>
                                     <option 
                                         value="<?php echo esc_attr( $category->term_id ); ?>" 
-                                        <?php selected( $feed_categories[ $index ] ?? '', $category->term_id, false ); ?>
+                                        <?php selected( $saved_value, (string) $category->term_id ); // Compara como strings ?>
                                     >
                                         <?php echo esc_html( $category->name ); ?>
                                     </option>
                                 <?php endforeach; ?>
+                                
                                 <option 
                                     value="none" 
-                                    <?php selected( $feed_categories[ $index ] ?? '', 'none' ); ?>
+                                    <?php selected( $saved_value, 'none' ); ?>
                                 >
                                     <?php esc_html_e( '-- Ninguna --', 'autonews-rss-rewriter' ); ?>
                                 </option>
@@ -207,6 +252,7 @@ https://otro-sitio.com/feed"
                         <?php esc_html_e( 'Selecciona la categoría correspondiente para cada feed RSS. "Categoría Automática" usará la sugerencia de la IA.', 'autonews-rss-rewriter' ); ?>
                     </p>
                 </div>
+
 
                 <div class="dsrw-field-group">
                     <label for="dsrw_default_author"><?php esc_html_e( 'Autor Predeterminado', 'autonews-rss-rewriter' ); ?></label>

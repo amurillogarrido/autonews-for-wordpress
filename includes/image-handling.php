@@ -277,7 +277,7 @@ function dsrw_generate_thumbnail_with_text( $title ) {
     }
 
     // Dividir el título en líneas para ajustarlo al ancho máximo
-    $max_text_width = $width - 100;
+    $max_text_width = $width - 400;
     $words = explode(' ', $title);
     $lines = array();
     $line = '';
