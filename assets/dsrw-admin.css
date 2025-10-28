@@ -1,0 +1,144 @@
+.dsrw-settings-page {
+    font-family: "Open Sans", sans-serif;
+    background: #f7f7f7;
+    padding: 20px;
+    border-radius: 6px;
+  }
+  
+  /* Título principal */
+  .dsrw-settings-page h1 {
+    background: linear-gradient(135deg, #0073aa 0%, #00a0d2 100%);
+    color: #fff;
+    padding: 12px 20px;
+    margin: 0 -20px 20px;
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  
+  /* Subtítulos dentro de la página */
+  .dsrw-settings-page h2 {
+    color: #333;
+    border-left: 4px solid #0073aa;
+    padding-left: 8px;
+    margin-top: 30px;
+    margin-bottom: 10px;
+    font-size: 1.4em;
+  }
+  
+  /* Lista de resumen (ej: dsrw-summary) */
+  .dsrw-summary {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+  }
+  
+  .dsrw-summary li {
+    background: #fff;
+    margin: 4px 0;
+    padding: 8px 12px;
+    border-left: 3px solid #0073aa;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  
+  /* Bloques de campo (dsrw-field-group) */
+  .dsrw-field-group {
+    background: #fff;
+    margin-bottom: 20px;
+    padding: 12px;
+    border-left: 4px solid #0073aa;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .dsrw-field-group:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+  }
+  
+  /* Etiqueta y descripción */
+  .dsrw-field-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+  }
+  
+  .dsrw-field-group .description {
+    font-size: 0.9em;
+    color: #666;
+  }
+  
+  /* Inputs y selects */
+  .dsrw-field-group input[type="text"],
+  .dsrw-field-group input[type="number"],
+  .dsrw-field-group input[type="color"],
+  .dsrw-field-group select,
+  .dsrw-field-group textarea {
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    padding: 6px 10px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  
+  .dsrw-field-group input[type="text"]:focus,
+  .dsrw-field-group input[type="number"]:focus,
+  .dsrw-field-group input[type="color"]:focus,
+  .dsrw-field-group select:focus,
+  .dsrw-field-group textarea:focus {
+    outline: none;
+    border-color: #0073aa;
+  }
+  
+  /* Botones */
+  .wp-core-ui .button-primary {
+    background: linear-gradient(135deg, #0073aa 0%, #00a0d2 100%) !important;
+    border: none !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .wp-core-ui .button-primary:hover {
+    background: linear-gradient(135deg, #005a8e 0%, #0084b3 100%) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  
+  /* Botón “Ejecutar Manualmente” */
+  #dsrw_manual_process_button {
+    background: linear-gradient(135deg, #f78da7 0%, #f78da7 50%, #f9a575 100%) !important;
+    color: #fff !important;
+    border: none !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background 0.3s ease-in-out;
+  }
+  #dsrw_manual_process_button:hover {
+    background: linear-gradient(135deg, #f67280 0%, #f67280 50%, #f9a26a 100%) !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+  }
+  
+  /* Spinner de WordPress (si usas la clase .spinner .is-active) */
+  .spinner {
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  
+  .spinner.is-active {
+    display: inline-block !important;
+  }
+  
+  /* Mensaje de estado */
+  #dsrw_manual_status {
+    background: #fff;
+    margin-top: 10px;
+    padding: 10px;
+    border-left: 4px solid #0073aa;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    font-size: 0.95em;
+    color: #333;
+  }

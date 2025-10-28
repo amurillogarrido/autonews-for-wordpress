@@ -1,0 +1,14 @@
+{
+    "name": "alberto/rssplugin",
+    "description": "Plugin para reescribrir artículos de RSS usando Readability",
+    "type": "wordpress-plugin",
+    "authors": [
+        {
+            "name": "Alberto Murillo"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "andreskrey/readability.php": "^2.1"
+    }
+}
