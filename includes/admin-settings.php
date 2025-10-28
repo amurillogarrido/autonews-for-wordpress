@@ -81,9 +81,10 @@ function dsrw_admin_scripts($hook) {
     );
 
     // Pasar datos al script: la URL de admin-ajax y un nonce
+    // Este nonce 'dsrw_run_feeds_nonce' será usado por el JS para la ejecución manual AJAX
     wp_localize_script('dsrw-admin-js', 'dsrwAjax', array(
         'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce'   => wp_create_nonce('dsrw_run_feeds_nonce')
+        'nonce'   => wp_create_nonce('dsrw_run_feeds_nonce') 
     ));
 }
 
@@ -131,7 +132,6 @@ function dsrw_settings_page() {
             do_settings_sections( 'dsrw_options_group' );
             ?>
 
-            <!-- Feeds RSS -->
             <div class="dsrw-field-group">
                 <label for="dsrw_rss_urls"><?php esc_html_e( 'Feeds RSS (uno por línea)', 'autonews-rss-rewriter' ); ?></label>
                 <textarea 
@@ -145,7 +145,6 @@ https://otro-sitio.com/feed"
                 <p class="description"><?php esc_html_e( 'Ingresa las URLs de los feeds RSS que deseas procesar, una por línea.', 'autonews-rss-rewriter' ); ?></p>
             </div>
 
-            <!-- Mapeo de Feeds a Categorías -->
             <div class="dsrw-field-group">
                 <label><?php esc_html_e( 'Mapeo de Feeds a Categorías', 'autonews-rss-rewriter' ); ?></label>
                 <p><?php esc_html_e( 'Asigna una categoría de WordPress a cada feed RSS. Si no existe la categoría, se creará automáticamente.', 'autonews-rss-rewriter' ); ?></p>
@@ -184,7 +183,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Autor Predeterminado -->
             <div class="dsrw-field-group">
                 <label for="dsrw_default_author"><?php esc_html_e( 'Autor Predeterminado', 'autonews-rss-rewriter' ); ?></label>
                 <?php
@@ -218,7 +216,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Idioma de Respuesta -->
             <div class="dsrw-field-group">
                 <label for="dsrw_selected_language">
                     <?php esc_html_e( 'Idioma de Respuesta', 'autonews-rss-rewriter' ); ?>
@@ -237,7 +234,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- OpenAI API Key -->
             <div class="dsrw-field-group">
                 <label for="dsrw_openai_api_key">
                     <?php esc_html_e( 'OpenAI API Key', 'autonews-rss-rewriter' ); ?>
@@ -255,7 +251,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- OpenAI API Base (URL) -->
             <div class="dsrw-field-group">
                 <label for="dsrw_openai_api_base">
                     <?php esc_html_e( 'OpenAI API Base (URL)', 'autonews-rss-rewriter' ); ?>
@@ -273,7 +268,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Número de artículos a procesar por feed -->
             <div class="dsrw-field-group">
                 <label for="dsrw_num_articulos">
                     <?php esc_html_e( 'Número de artículos a procesar por feed', 'autonews-rss-rewriter' ); ?>
@@ -291,7 +285,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Desfase de Publicación (minutos) -->
             <div class="dsrw-field-group">
                 <label for="dsrw_publish_delay">
                     <?php esc_html_e( 'Desfase de Publicación (minutos)', 'autonews-rss-rewriter' ); ?>
@@ -309,7 +302,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Intervalo de Cron (minutos) -->
             <div class="dsrw-field-group">
                 <label for="dsrw_cron_interval">
                     <?php esc_html_e( 'Intervalo de Cron (minutos)', 'autonews-rss-rewriter' ); ?>
@@ -369,7 +361,6 @@ https://otro-sitio.com/feed"
                 </p>
             </div>
 
-            <!-- Generar miniaturas automáticas con el título -->
             <div class="dsrw-field-group">
                 <label for="dsrw_enable_thumbnail_generator">
                     <?php esc_html_e( 'Generar miniaturas automáticas con el título', 'autonews-rss-rewriter' ); ?>
@@ -384,7 +375,6 @@ https://otro-sitio.com/feed"
                 <span><?php esc_html_e( 'Activar generación automática si no hay imagen', 'autonews-rss-rewriter' ); ?></span>
             </div>
 
-            <!-- Extraer imágenes del contenido -->
             <div class="dsrw-field-group">
                 <label for="dsrw_enable_image_extraction">
                     <?php esc_html_e( 'Extraer imágenes del contenido', 'autonews-rss-rewriter' ); ?>
@@ -399,7 +389,6 @@ https://otro-sitio.com/feed"
                 <span><?php esc_html_e( 'Activar extracción de imágenes de los feeds', 'autonews-rss-rewriter' ); ?></span>
             </div>
 
-            <!-- Color de fondo para miniatura -->
             <div class="dsrw-field-group">
                 <label for="dsrw_thumbnail_bg_color">
                     <?php esc_html_e( 'Color de fondo para miniatura', 'autonews-rss-rewriter' ); ?>
@@ -412,7 +401,6 @@ https://otro-sitio.com/feed"
                 />
             </div>
 
-            <!-- Color del texto en miniatura -->
             <div class="dsrw-field-group">
                 <label for="dsrw_thumbnail_text_color">
                     <?php esc_html_e( 'Color del texto en miniatura', 'autonews-rss-rewriter' ); ?>
@@ -425,7 +413,6 @@ https://otro-sitio.com/feed"
                 />
             </div>
 
-            <!-- Tamaño de fuente en miniatura (px) -->
             <div class="dsrw-field-group">
                 <label for="dsrw_thumbnail_font_size">
                     <?php esc_html_e( 'Tamaño de fuente en miniatura (px)', 'autonews-rss-rewriter' ); ?>
@@ -440,8 +427,7 @@ https://otro-sitio.com/feed"
                 />
             </div>
 
-            <!-- Permitir creación automática de categorías sugeridas por la IA -->
-<div class="dsrw-field-group">
+            <div class="dsrw-field-group">
     <label for="dsrw_allow_category_creation">
         <?php esc_html_e('Permitir crear categorías sugeridas por la IA', 'autonews-rss-rewriter'); ?>
     </label>
@@ -477,71 +463,98 @@ https://otro-sitio.com/feed"
 
         <hr />
         
-        <!-- Área para ejecutar manualmente el procesamiento de feeds -->
-<h2><?php esc_html_e( 'Ejecutar Procesamiento Manualmente', 'autonews-rss-rewriter' ); ?></h2>
-<p><?php esc_html_e( 'Haz clic para procesar inmediatamente todos los feeds RSS configurados.', 'autonews-rss-rewriter' ); ?></p>
-<form method="post">
-    <?php
-    wp_nonce_field( 'dsrw_manual_process_action', 'dsrw_manual_process_nonce' );
-    submit_button( __( 'Ejecutar Manualmente', 'autonews-rss-rewriter' ), 'primary', 'dsrw_manual_process', true, array( 'id' => 'dsrw_manual_process_button' ) );
-    ?>
-    <span id="dsrw_manual_spinner" style="display:none; margin-left: 10px;">⏳ Procesando...</span>
-    <div id="autonews-manual-log" style="font-family: monospace; background: #f6f8fa; border: 1px solid #ccc; padding: 10px; margin-top: 10px; display: none;"></div>
+        <h2><?php esc_html_e( 'Ejecutar Procesamiento Manualmente', 'autonews-rss-rewriter' ); ?></h2>
+        <p><?php esc_html_e( 'Haz clic para procesar inmediatamente todos los feeds RSS configurados.', 'autonews-rss-rewriter' ); ?></p>
+        
+        <p>
+            <button type="button" class="button button-primary" id="autonews-manual-run-button">
+                <?php esc_html_e( 'Ejecutar Manualmente', 'autonews-rss-rewriter' ); ?>
+            </button>
+            <span id="dsrw_manual_spinner" style="display:none; margin-left: 10px; vertical-align: middle;">⏳ Procesando...</span>
+        </p>
+        
+        <div id="autonews-manual-log" style="font-family: monospace; background: #f6f8fa; border: 1px solid #ccc; padding: 10px; margin-top: 10px; display: none; max-height: 400px; overflow-y: auto; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);"></div>
 
-</form>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const runButton = document.getElementById("dsrw_manual_process_button");
-  const logBox = document.getElementById("autonews-manual-log");
+    </div> <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const runButton = document.getElementById("autonews-manual-run-button");
+        const logBox = document.getElementById("autonews-manual-log");
+        const spinner = document.getElementById("dsrw_manual_spinner");
 
-  if (runButton && logBox) {
-    runButton.addEventListener("click", function(e) {
-      e.preventDefault();
-      logBox.innerHTML = "⏳ Ejecutando feed manualmente...<br>";
-      logBox.style.display = "block";
+        if (runButton && logBox && spinner) {
+            runButton.addEventListener("click", function(e) {
+                e.preventDefault();
+                
+                // Mostrar spinner y limpiar log
+                spinner.style.display = "inline-block";
+                runButton.disabled = true;
+                logBox.innerHTML = "⏳ Ejecutando feed manualmente...<br>";
+                logBox.style.display = "block";
 
-      fetch(ajaxurl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-          action: "autonews_manual_run"
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data.logs) {
-          data.data.logs.forEach(line => {
-            logBox.innerHTML += line + "<br>";
-          });
-        } else {
-          logBox.innerHTML += "❌ Error inesperado al ejecutar.";
+                // Usamos 'dsrwAjax.ajaxUrl' y 'dsrwAjax.nonce' que nos pasó wp_localize_script
+                fetch(dsrwAjax.ajaxUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        action: "autonews_manual_run",
+                        nonce:  dsrwAjax.nonce 
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.data.logs && data.data.logs.length > 0) {
+                            data.data.logs.forEach(line => {
+                                logBox.innerHTML += esc_html(line) + "<br>";
+                            });
+                        } else {
+                            logBox.innerHTML += "✅ Proceso completado, pero no se generaron logs detallados.<br>";
+                        }
+                    } else {
+                        if (data.data.logs && data.data.logs.length > 0) {
+                             data.data.logs.forEach(line => {
+                                logBox.innerHTML += esc_html(line) + "<br>";
+                            });
+                        } else {
+                            logBox.innerHTML += "❌ Error inesperado al ejecutar.<br>";
+                        }
+                    }
+                    
+                    // Ocultar spinner y reactivar botón
+                    spinner.style.display = "none";
+                    runButton.disabled = false;
+                    logBox.scrollTop = logBox.scrollHeight; // Auto-scroll al final
+                })
+                .catch(error => {
+                    logBox.innerHTML += "❌ ERROR DE CONEXIÓN: " + esc_html(error.message) + "<br>";
+                    spinner.style.display = "none";
+                    runButton.disabled = false;
+                });
+            });
         }
-      });
-    });
-  }
-});
-</script>
 
-<!-- Aquí el div extra para mostrar mensajes de estado -->
-<div id="dsrw_manual_status" style="margin-top:10px;"></div>
-    </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const btn = document.getElementById('dsrw_manual_process_button');
-        const spinner = document.getElementById('dsrw_manual_spinner');
-        if (btn && spinner) {
-            btn.addEventListener('click', function () {
-                spinner.style.display = 'inline-block';
+        // Función simple para escapar HTML en JS y evitar XSS
+        function esc_html(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[m];
             });
         }
     });
     </script>
     <?php
 
+    // --- MANEJO DE FORMULARIOS CRON (SIN AJAX) ---
+    // Esta parte se queda igual, ya que maneja los formularios de Programar/Eliminar Cron
+    
     // Sección de acciones para cron
     if ( isset( $_POST['dsrw_schedule_cron'] ) ) {
         if ( ! isset( $_POST['dsrw_schedule_cron_nonce'] ) || ! wp_verify_nonce( $_POST['dsrw_schedule_cron_nonce'], 'dsrw_schedule_cron_action' ) ) {
@@ -576,22 +589,50 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    if ( isset( $_POST['dsrw_manual_process'] ) ) {
-        if ( ! isset( $_POST['dsrw_manual_process_nonce'] ) || ! wp_verify_nonce( $_POST['dsrw_manual_process_nonce'], 'dsrw_manual_process_action' ) ) {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'Permiso denegado para ejecutar el procesamiento manualmente.', 'autonews-rss-rewriter' ) . '</p></div>';
-        } else {
-            dsrw_process_all_feeds();
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Procesamiento de feeds ejecutado manualmente exitosamente.', 'autonews-rss-rewriter' ) . '</p></div>';
-        }
-    }
+    /* MODIFICACIÓN AJAX:
+    Se elimina el bloque 'if ( isset( $_POST['dsrw_manual_process'] ) ) { ... }'
+    porque esa lógica ahora se maneja 100% con AJAX.
+    */
 }
+
+
+// --- MODIFICACIÓN AJAX ---
+// Se reemplaza la función de simulación por la función REAL.
+// Ahora comprueba el nonce, los permisos y ejecuta el proceso real.
 
 add_action('wp_ajax_autonews_manual_run', 'autonews_manual_run_callback');
 
+/**
+ * Función de callback de AJAX para ejecutar el procesamiento manual de feeds.
+ * Esta es la versión REAL que reemplaza la simulación.
+ */
 function autonews_manual_run_callback() {
-    // Simulación de pasos reales
-    $logs = [
-        "Puedes salir de esta página si lo deseas."
-    ];
-    wp_send_json_success([ 'logs' => $logs ]);
+    
+    // 1. Seguridad: Verificar Nonce y permisos
+    // Usamos el nonce 'dsrw_run_feeds_nonce' que definimos en wp_localize_script
+    if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'dsrw_run_feeds_nonce' ) ) {
+        wp_send_json_error( [ 'logs' => [ '❌ Error de seguridad (Nonce inválido). Intenta recargar la página.' ] ], 403 );
+    }
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'logs' => [ '❌ Error: No tienes permisos.' ] ], 403 );
+    }
+
+    // 2. Preparar el array de logs
+    $logs = [];
+    $logs[] = "▶️ " . esc_html__( 'Iniciando procesamiento manual...', 'autonews-rss-rewriter' );
+
+    // 3. Ejecutar el proceso real (pasando el array $logs por referencia)
+    // dsrw_process_all_feeds llenará el array $logs con su progreso.
+    try {
+        dsrw_process_all_feeds( $logs );
+    } catch (Exception $e) {
+        $logs[] = "❌ " . esc_html__( 'Error fatal durante la ejecución: ', 'autonews-rss-rewriter' ) . $e->getMessage();
+        dsrw_write_log( "[AutoNews] Error fatal en ejecución AJAX: " . $e->getMessage() );
+        wp_send_json_error( [ 'logs' => $logs ] );
+    }
+    
+    // 4. Devolver el resultado
+    $logs[] = "✅ " . esc_html__( 'Proceso manual completado.', 'autonews-rss-rewriter' );
+    wp_send_json_success( [ 'logs' => $logs ] );
 }

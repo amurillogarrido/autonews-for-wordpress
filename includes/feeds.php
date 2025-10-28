@@ -3,13 +3,13 @@
  * Archivo: feeds.php
  * Ubicación: includes/feeds.php
  * Descripción: Funciones para procesar los feeds RSS, validar y publicar artículos,
- *              obtener el contenido completo, limpiar el HTML y gestionar duplicados.
+ * obtener el contenido completo, limpiar el HTML y gestionar duplicados.
  *
  * Nota: Este archivo depende de que existan funciones en otros módulos, por ejemplo:
- *       - dsrw_write_log() en logs.php
- *       - dsrw_send_error_email() en error-handling.php
- *       - dsrw_get_prompt_template() en prompts.php
- *       Además, se asume que el autoloader de Composer y la carga de traducciones ya se han realizado.
+ * - dsrw_write_log() en logs.php
+ * - dsrw_send_error_email() en error-handling.php
+ * - dsrw_get_prompt_template() en prompts.php
+ * Además, se asume que el autoloader de Composer y la carga de traducciones ya se han realizado.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -46,7 +46,7 @@ function dsrw_process_all_feeds(&$logs = null) {
     foreach ( $rss_urls as $index => $url ) {
         // Se toma la configuración del feed sin modificarla para cada artículo del feed
         $feed_category_setting = isset( $feed_categories[ $index ] ) ? $feed_categories[ $index ] : '';
-        dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors );
+        dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs );
     }
 }
 
@@ -62,6 +62,7 @@ function dsrw_process_all_feeds(&$logs = null) {
  * @param int    $publish_delay_minutes Desfase en minutos entre publicaciones.
  * @param mixed  $default_author_option Opción de autor predeterminado.
  * @param array  $available_authors Lista de usuarios autores.
+ * @param array  &$logs (Opcional) Array para registrar logs para AJAX.
  */
 
  function dsrw_ajax_run_feeds() {
@@ -79,7 +80,7 @@ function dsrw_process_all_feeds(&$logs = null) {
 }
 add_action( 'wp_ajax_dsrw_run_feeds', 'dsrw_ajax_run_feeds' );
 
-function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $feed_category_setting, &$base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors ) {
+function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $feed_category_setting, &$base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, &$logs = null ) {
     if ( empty( $feed_url ) ) {
         return;
     }
@@ -148,11 +149,16 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
         if ( ! $reescrito ) {
             continue;
         }
-        $nuevo_titulo = isset( $reescrito['Título'] ) ? $reescrito['Título'] : '';
-        $nuevo_contenido = isset( $reescrito['Contenido'] ) ? $reescrito['Contenido'] : '';
-        $nuevo_slug = isset( $reescrito['Slug'] ) ? sanitize_title( $reescrito['Slug'] ) : '';
-        $categoria_nombre = isset( $reescrito['Categoría'] ) ? sanitize_text_field( $reescrito['Categoría'] ) : '';
-        $excerpt = isset( $reescrito['Excerpt'] ) ? sanitize_text_field( $reescrito['Excerpt'] ) : '';
+        
+        // --- MODIFICACIÓN DE CLAVES JSON ---
+        // Se leen las claves en inglés ("title") en lugar de en español ("Título")
+        $nuevo_titulo = isset( $reescrito['title'] ) ? $reescrito['title'] : '';
+        $nuevo_contenido = isset( $reescrito['content'] ) ? $reescrito['content'] : '';
+        $nuevo_slug = isset( $reescrito['slug'] ) ? sanitize_title( $reescrito['slug'] ) : '';
+        $categoria_nombre = isset( $reescrito['category'] ) ? sanitize_text_field( $reescrito['category'] ) : '';
+        $excerpt = isset( $reescrito['excerpt'] ) ? sanitize_text_field( $reescrito['excerpt'] ) : '';
+        // --- FIN MODIFICACIÓN DE CLAVES JSON ---
+
 
         // --- MODIFICACIÓN DE CATEGORÍAS ---
 if ( $feed_category_setting === 'none' ) {
