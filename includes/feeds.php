@@ -131,7 +131,7 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
 
         // Obtener y limpiar el contenido
         $contenido = dsrw_get_full_content( $enlace );
-        $contenido = dsrw_clean_article_content( $contenido );
+        $contenido = dsrw_clean_article_content( $contenido ); // <-- ¡AQUÍ SE LIMPIA!
         if ( empty( $contenido ) ) {
             $contenido = wp_strip_all_tags( $item->get_description() );
         }
@@ -195,7 +195,7 @@ if ( $feed_category_setting === 'none' ) {
         $categoria_final = $default_category ? (int) $default_category : 1;
     }
 } else {
-    // Usa la categoría especificada manualmente en dsrw_feed_categories
+    // Usa la categoría especificada manually en dsrw_feed_categories
     $categoria_final = (int) $feed_category_setting;
 }
 // --- FIN MODIFICACIÓN DE CATEGORÍAS ---
@@ -374,8 +374,35 @@ function dsrw_clean_article_content( $html ) {
     }
     // Eliminar todas las etiquetas <img>
     $html = preg_replace('/<img[^>]+\>/i', '', $html);
+    
     // Eliminar enlaces <a> conservando el texto interno
     $html = preg_replace('/<a href="(http|https):\/\/[^"]+"[^>]*>(.*?)<\/a>/i', '$2', $html);
+
+    // --- ¡NUEVA MEJORA MULTI-IDIOMA! ---
+    // Lista de palabras basura a eliminar (expresiones regulares separadas por | )
+    $junk_words = [
+        // Español
+        'lee la crónica', 'leer más', 'ver más', 'click aquí', 'pincha aquí', 'seguir leyendo', 'más información',
+        // Inglés
+        'read more', 'click here', 'continue reading', 'more information',
+        // Alemán
+        'weiterlesen', 'mehr lesen', 'klicken Sie hier', 'mehr erfahren',
+        // Francés
+        'lire la suite', 'en savoir plus', 'cliquez ici',
+        // Noruego
+        'les mer', 'klikk her', 'fortsett å lese',
+        // Islandés
+        'lesa meira', 'smelltu hér', 'halda áfram að lesa',
+        // Sueco
+        'läs mer', 'klicka här', 'fortsätt läsa'
+    ];
+    
+    // Construye la expresión regular
+    $regex = '/[\s\(]+(' . implode('|', $junk_words) . ')[\s\)]+/i';
+    
+    // Elimina "junk" residual de los enlaces
+    $html = preg_replace($regex, '', $html);
+    
     // Eliminar atributos style y on* por seguridad
     $html = preg_replace('/\s*(style|on[a-z]+)\s*=\s*["\'][^"\']*["\']/i', '', $html);
     return trim($html);

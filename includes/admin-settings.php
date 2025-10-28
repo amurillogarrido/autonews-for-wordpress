@@ -57,7 +57,7 @@ add_action( 'admin_menu', 'dsrw_create_menu' );
 
 add_action('admin_enqueue_scripts', 'dsrw_admin_scripts');
 function dsrw_admin_scripts($hook) {
-    // Ajusta este valor al que realmente tiene tu página de ajustes
+    // Solo cargar en nuestra página de ajustes
     if ($hook !== 'toplevel_page_dsrw-settings') {
         return;
     }
@@ -67,7 +67,7 @@ function dsrw_admin_scripts($hook) {
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0',
+        '1.0.1', // Subir la versión para evitar caché
         'all'
     );
 
@@ -75,13 +75,12 @@ function dsrw_admin_scripts($hook) {
     wp_enqueue_script(
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
-        array('jquery'),
-        '1.0',
+        array('jquery'), // jQuery es necesario para el nuevo script de pestañas
+        '1.0.1', // Subir la versión
         true
     );
 
     // Pasar datos al script: la URL de admin-ajax y un nonce
-    // Este nonce 'dsrw_run_feeds_nonce' será usado por el JS para la ejecución manual AJAX
     wp_localize_script('dsrw-admin-js', 'dsrwAjax', array(
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce'   => wp_create_nonce('dsrw_run_feeds_nonce') 
@@ -119,11 +118,22 @@ function dsrw_settings_page() {
 
     <div class="wrap dsrw-settings-page">
         <h1><?php esc_html_e( 'AutoNews - Configuración', 'autonews-rss-rewriter' ); ?></h1>
-        <h2><?php esc_html_e( 'Resumen', 'autonews-rss-rewriter' ); ?></h2>
-        <ul class="dsrw-summary">
-            <li><?php esc_html_e( 'Total de Feeds Configurados: ', 'autonews-rss-rewriter' ); ?><?php echo esc_html( $total_feeds ); ?></li>
-            <li><?php esc_html_e( 'Total de Posts Publicados: ', 'autonews-rss-rewriter' ); ?><?php echo esc_html( $total_posts ); ?></li>
-        </ul>
+        
+        <div class="dsrw-summary-wrapper">
+            <h2><?php esc_html_e( 'Resumen', 'autonews-rss-rewriter' ); ?></h2>
+            <ul class="dsrw-summary">
+                <li><?php esc_html_e( 'Total de Feeds Configurados: ', 'autonews-rss-rewriter' ); ?><?php echo esc_html( $total_feeds ); ?></li>
+                <li><?php esc_html_e( 'Total de Posts Publicados: ', 'autonews-rss-rewriter' ); ?><?php echo esc_html( $total_posts ); ?></li>
+            </ul>
+        </div>
+
+        <h2 class="nav-tab-wrapper">
+            <a href="#tab-main" class="nav-tab"><?php esc_html_e( 'Configuración Principal', 'autonews-rss-rewriter' ); ?></a>
+            <a href="#tab-api" class="nav-tab"><?php esc_html_e( 'API (OpenAI)', 'autonews-rss-rewriter' ); ?></a>
+            <a href="#tab-publishing" class="nav-tab"><?php esc_html_e( 'Publicación', 'autonews-rss-rewriter' ); ?></a>
+            <a href="#tab-images" class="nav-tab"><?php esc_html_e( 'Imágenes', 'autonews-rss-rewriter' ); ?></a>
+            <a href="#tab-tools" class="nav-tab"><?php esc_html_e( 'Herramientas', 'autonews-rss-rewriter' ); ?></a>
+        </h2>
 
         <form method="post" action="options.php" class="dsrw-settings-form">
             <?php
@@ -132,430 +142,356 @@ function dsrw_settings_page() {
             do_settings_sections( 'dsrw_options_group' );
             ?>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_rss_urls"><?php esc_html_e( 'Feeds RSS (uno por línea)', 'autonews-rss-rewriter' ); ?></label>
-                <textarea 
-                    id="dsrw_rss_urls" 
-                    name="dsrw_rss_urls" 
-                    rows="5" 
-                    cols="50" 
-                    placeholder="https://tusitio.com/feed
+            <div id="tab-main" class="tab-content">
+                <div class="dsrw-field-group">
+                    <label for="dsrw_rss_urls"><?php esc_html_e( 'Feeds RSS (uno por línea)', 'autonews-rss-rewriter' ); ?></label>
+                    <textarea 
+                        id="dsrw_rss_urls" 
+                        name="dsrw_rss_urls" 
+                        rows="5" 
+                        cols="50" 
+                        placeholder="https://tusitio.com/feed
 https://otro-sitio.com/feed"
-                ><?php echo esc_textarea( get_option('dsrw_rss_urls') ); ?></textarea>
-                <p class="description"><?php esc_html_e( 'Ingresa las URLs de los feeds RSS que deseas procesar, una por línea.', 'autonews-rss-rewriter' ); ?></p>
-            </div>
+                    ><?php echo esc_textarea( get_option('dsrw_rss_urls') ); ?></textarea>
+                    <p class="description"><?php esc_html_e( 'Ingresa las URLs de los feeds RSS que deseas procesar, una por línea.', 'autonews-rss-rewriter' ); ?></p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label><?php esc_html_e( 'Mapeo de Feeds a Categorías', 'autonews-rss-rewriter' ); ?></label>
-                <p><?php esc_html_e( 'Asigna una categoría de WordPress a cada feed RSS. Si no existe la categoría, se creará automáticamente.', 'autonews-rss-rewriter' ); ?></p>
-                <?php
-                $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
-                $feed_categories = get_option( 'dsrw_feed_categories', array() );
-                $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
-                foreach ( $rss_urls as $index => $url ) :
-                    ?>
-                    <div class="dsrw-feed-mapping">
-                        <label for="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]"><?php echo esc_html( $url ); ?></label>
-                        <?php
-                        $categories = get_categories( array( 'hide_empty' => false ) );
+                <div class="dsrw-field-group">
+                    <label><?php esc_html_e( 'Mapeo de Feeds a Categorías', 'autonews-rss-rewriter' ); ?></label>
+                    <p><?php esc_html_e( 'Asigna una categoría de WordPress a cada feed RSS.', 'autonews-rss-rewriter' ); ?></p>
+                    <?php
+                    $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
+                    $feed_categories = get_option( 'dsrw_feed_categories', array() );
+                    $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+                    foreach ( $rss_urls as $index => $url ) :
                         ?>
-                        <select name="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]" id="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]">
-                            <option value=""><?php esc_html_e( '-- Categoría Automática --', 'autonews-rss-rewriter' ); ?></option>
-                            <?php foreach ( $categories as $category ) : ?>
+                        <div class="dsrw-feed-mapping">
+                            <label for="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]"><?php echo esc_html( $url ); ?></label>
+                            <?php
+                            $categories = get_categories( array( 'hide_empty' => false ) );
+                            ?>
+                            <select name="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]" id="dsrw_feed_categories[<?php echo esc_attr( $index ); ?>]">
+                                <option value=""><?php esc_html_e( '-- Categoría Automática (IA) --', 'autonews-rss-rewriter' ); ?></option>
+                                <?php foreach ( $categories as $category ) : ?>
+                                    <option 
+                                        value="<?php echo esc_attr( $category->term_id ); ?>" 
+                                        <?php selected( $feed_categories[ $index ] ?? '', $category->term_id, false ); ?>
+                                    >
+                                        <?php echo esc_html( $category->name ); ?>
+                                    </option>
+                                <?php endforeach; ?>
                                 <option 
-                                    value="<?php echo esc_attr( $category->term_id ); ?>" 
-                                    <?php selected( $feed_categories[ $index ] ?? '', $category->term_id, false ); ?>
+                                    value="none" 
+                                    <?php selected( $feed_categories[ $index ] ?? '', 'none' ); ?>
                                 >
-                                    <?php echo esc_html( $category->name ); ?>
+                                    <?php esc_html_e( '-- Ninguna --', 'autonews-rss-rewriter' ); ?>
                                 </option>
-                            <?php endforeach; ?>
-                            <option 
-                                value="none" 
-                                <?php selected( $feed_categories[ $index ] ?? '', 'none' ); ?>
-                            >
-                                <?php esc_html_e( '-- Ninguna --', 'autonews-rss-rewriter' ); ?>
-                            </option>
-                        </select>
-                    </div>
-                <?php endforeach; ?>
-                <p class="description">
-                    <?php esc_html_e( 'Selecciona la categoría correspondiente para cada feed RSS. "Categoría Automática" asignará una categoría basada en la respuesta de la IA si no se elige ninguna.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
-
-            <div class="dsrw-field-group">
-                <label for="dsrw_default_author"><?php esc_html_e( 'Autor Predeterminado', 'autonews-rss-rewriter' ); ?></label>
-                <?php
-                $users = get_users( array(
-                    'who'     => 'authors',
-                    'orderby' => 'display_name',
-                    'order'   => 'ASC',
-                ) );
-                ?>
-                <select name="dsrw_default_author" id="dsrw_default_author">
-                    <option value="">
-                        <?php esc_html_e( '-- Seleccionar Autor --', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="random" 
-                        <?php selected( get_option('dsrw_default_author'), 'random' ); ?>
-                    >
-                        <?php esc_html_e( '-- Aleatorio --', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <?php foreach ( $users as $user ) : ?>
-                        <option 
-                            value="<?php echo esc_attr( $user->ID ); ?>" 
-                            <?php selected( get_option('dsrw_default_author'), $user->ID ); ?>
-                        >
-                            <?php echo esc_html( $user->display_name ); ?>
-                        </option>
+                            </select>
+                        </div>
                     <?php endforeach; ?>
-                </select>
-                <p class="description">
-                    <?php esc_html_e( 'Selecciona el autor predeterminado para los posts generados o elige "Aleatorio".', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                    <p class="description">
+                        <?php esc_html_e( 'Selecciona la categoría correspondiente para cada feed RSS. "Categoría Automática" usará la sugerencia de la IA.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_selected_language">
-                    <?php esc_html_e( 'Idioma de Respuesta', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <select name="dsrw_selected_language" id="dsrw_selected_language">
-                    <?php 
-                    foreach ( $available_languages as $lang_code => $lang_name ) {
-                        echo '<option value="' . esc_attr( $lang_code ) . '"' 
-                             . selected( $selected_language, $lang_code, false ) 
-                             . '>' . esc_html( $lang_name ) . '</option>';
-                    } 
+                <div class="dsrw-field-group">
+                    <label for="dsrw_default_author"><?php esc_html_e( 'Autor Predeterminado', 'autonews-rss-rewriter' ); ?></label>
+                    <?php
+                    $users = get_users( array(
+                        'who'     => 'authors',
+                        'orderby' => 'display_name',
+                        'order'   => 'ASC',
+                    ) );
                     ?>
-                </select>
-                <p class="description">
-                    <?php esc_html_e( 'Selecciona el idioma en el que deseas que la API reescriba los artículos.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                    <select name="dsrw_default_author" id="dsrw_default_author">
+                        <option value="">
+                            <?php esc_html_e( '-- Seleccionar Autor --', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="random" 
+                            <?php selected( get_option('dsrw_default_author'), 'random' ); ?>
+                        >
+                            <?php esc_html_e( '-- Aleatorio --', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <?php foreach ( $users as $user ) : ?>
+                            <option 
+                                value="<?php echo esc_attr( $user->ID ); ?>" 
+                                <?php selected( get_option('dsrw_default_author'), $user->ID ); ?>
+                            >
+                                <?php echo esc_html( $user->display_name ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e( 'Selecciona el autor predeterminado para los posts generados o elige "Aleatorio".', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_openai_api_key">
-                    <?php esc_html_e( 'OpenAI API Key', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="password" 
-                    name="dsrw_openai_api_key" 
-                    id="dsrw_openai_api_key"
-                    value="<?php echo esc_attr( get_option('dsrw_openai_api_key') ); ?>" 
-                    size="50" 
-                    placeholder="<?php esc_attr_e( 'Ingresa tu clave de API aquí', 'autonews-rss-rewriter' ); ?>" 
-                />
-                <p class="description">
-                    <?php esc_html_e( 'Tu clave de API proporcionada por OpenAI.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_selected_language">
+                        <?php esc_html_e( 'Idioma de Respuesta', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <select name="dsrw_selected_language" id="dsrw_selected_language">
+                        <?php 
+                        foreach ( $available_languages as $lang_code => $lang_name ) {
+                            echo '<option value="' . esc_attr( $lang_code ) . '"' 
+                                 . selected( $selected_language, $lang_code, false ) 
+                                 . '>' . esc_html( $lang_name ) . '</option>';
+                        } 
+                        ?>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e( 'Selecciona el idioma en el que deseas que la API reescriba los artículos.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+            </div> <div id="tab-api" class="tab-content">
+                <div class="dsrw-field-group">
+                    <label for="dsrw_openai_api_key">
+                        <?php esc_html_e( 'OpenAI API Key', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="password" 
+                        name="dsrw_openai_api_key" 
+                        id="dsrw_openai_api_key"
+                        value="<?php echo esc_attr( get_option('dsrw_openai_api_key') ); ?>" 
+                        size="50" 
+                        placeholder="<?php esc_attr_e( 'Ingresa tu clave de API aquí', 'autonews-rss-rewriter' ); ?>" 
+                    />
+                    <p class="description">
+                        <?php esc_html_e( 'Tu clave de API proporcionada por OpenAI.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_openai_api_base">
-                    <?php esc_html_e( 'OpenAI API Base (URL)', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="text" 
-                    name="dsrw_openai_api_base" 
-                    id="dsrw_openai_api_base"
-                    value="<?php echo esc_attr( get_option('dsrw_openai_api_base', 'https://api.openai.com') ); ?>" 
-                    size="50" 
-                    placeholder="https://api.openai.com" 
-                />
-                <p class="description">
-                    <?php esc_html_e( 'URL base de la API de OpenAI. Modifícala solo si es necesario.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_openai_api_base">
+                        <?php esc_html_e( 'OpenAI API Base (URL)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="dsrw_openai_api_base" 
+                        id="dsrw_openai_api_base"
+                        value="<?php echo esc_attr( get_option('dsrw_openai_api_base', 'https://api.openai.com') ); ?>" 
+                        size="50" 
+                        placeholder="https://api.openai.com" 
+                    />
+                    <p class="description">
+                        <?php esc_html_e( 'URL base de la API de OpenAI. Modifícala solo si es necesario.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+            </div> <div id="tab-publishing" class="tab-content">
+                <div class="dsrw-field-group">
+                    <label for="dsrw_num_articulos">
+                        <?php esc_html_e( 'Número de artículos a procesar por feed', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="number" 
+                        name="dsrw_num_articulos" 
+                        id="dsrw_num_articulos"
+                        value="<?php echo esc_attr( get_option('dsrw_num_articulos', 5) ); ?>" 
+                        min="1" 
+                        max="50" 
+                    />
+                    <p class="description">
+                        <?php esc_html_e( 'Define cuántos artículos deseas procesar por cada feed en cada ejecución.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_num_articulos">
-                    <?php esc_html_e( 'Número de artículos a procesar por feed', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="number" 
-                    name="dsrw_num_articulos" 
-                    id="dsrw_num_articulos"
-                    value="<?php echo esc_attr( get_option('dsrw_num_articulos', 5) ); ?>" 
-                    min="1" 
-                    max="50" 
-                />
-                <p class="description">
-                    <?php esc_html_e( 'Define cuántos artículos deseas procesar por cada feed en cada ejecución.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_publish_delay">
+                        <?php esc_html_e( 'Desfase de Publicación (minutos)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="number" 
+                        name="dsrw_publish_delay" 
+                        id="dsrw_publish_delay"
+                        value="<?php echo esc_attr( get_option('dsrw_publish_delay', 0) ); ?>" 
+                        min="0" 
+                        max="4320" 
+                    />
+                    <p class="description">
+                        <?php esc_html_e( 'Minutos de diferencia entre publicaciones (0 para inmediato).', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_publish_delay">
-                    <?php esc_html_e( 'Desfase de Publicación (minutos)', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="number" 
-                    name="dsrw_publish_delay" 
-                    id="dsrw_publish_delay"
-                    value="<?php echo esc_attr( get_option('dsrw_publish_delay', 0) ); ?>" 
-                    min="0" 
-                    max="4320" 
-                />
-                <p class="description">
-                    <?php esc_html_e( 'Minutos de diferencia entre publicaciones (0 para inmediato).', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_cron_interval">
+                        <?php esc_html_e( 'Intervalo de Cron (minutos)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <select name="dsrw_cron_interval" id="dsrw_cron_interval">
+                        <option 
+                            value="disabled" 
+                            <?php selected( get_option('dsrw_cron_interval'), 'disabled' ); ?>
+                        >
+                            <?php esc_html_e( '-- Deshabilitado --', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="30" 
+                            <?php selected( get_option('dsrw_cron_interval'), '30' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 30 minutos', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="60" 
+                            <?php selected( get_option('dsrw_cron_interval'), '60' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada hora', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="120" 
+                            <?php selected( get_option('dsrw_cron_interval'), '120' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 2 horas', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="180" 
+                            <?php selected( get_option('dsrw_cron_interval'), '180' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 3 horas', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="600" 
+                            <?php selected( get_option('dsrw_cron_interval'), '600' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 10 horas', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="720" 
+                            <?php selected( get_option('dsrw_cron_interval'), '720' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 12 horas', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                        <option 
+                            value="1440" 
+                            <?php selected( get_option('dsrw_cron_interval'), '1440' ); ?>
+                        >
+                            <?php esc_html_e( 'Cada 24 horas', 'autonews-rss-rewriter' ); ?>
+                        </option>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e( 'Selecciona el intervalo para ejecutar la tarea cron.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_cron_interval">
-                    <?php esc_html_e( 'Intervalo de Cron (minutos)', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <select name="dsrw_cron_interval" id="dsrw_cron_interval">
-                    <option 
-                        value="disabled" 
-                        <?php selected( get_option('dsrw_cron_interval'), 'disabled' ); ?>
-                    >
-                        <?php esc_html_e( '-- Deshabilitado --', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="30" 
-                        <?php selected( get_option('dsrw_cron_interval'), '30' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 30 minutos', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="60" 
-                        <?php selected( get_option('dsrw_cron_interval'), '60' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada hora', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="120" 
-                        <?php selected( get_option('dsrw_cron_interval'), '120' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 2 horas', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="180" 
-                        <?php selected( get_option('dsrw_cron_interval'), '180' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 3 horas', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="600" 
-                        <?php selected( get_option('dsrw_cron_interval'), '600' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 10 horas', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="720" 
-                        <?php selected( get_option('dsrw_cron_interval'), '720' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 12 horas', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                    <option 
-                        value="1440" 
-                        <?php selected( get_option('dsrw_cron_interval'), '1440' ); ?>
-                    >
-                        <?php esc_html_e( 'Cada 24 horas', 'autonews-rss-rewriter' ); ?>
-                    </option>
-                </select>
-                <p class="description">
-                    <?php esc_html_e( 'Selecciona el intervalo para ejecutar la tarea cron.', 'autonews-rss-rewriter' ); ?>
-                </p>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_allow_category_creation">
+                        <?php esc_html_e('Permitir crear categorías sugeridas por la IA', 'autonews-rss-rewriter'); ?>
+                    </label>
+                    <input
+                        type="checkbox"
+                        name="dsrw_allow_category_creation"
+                        id="dsrw_allow_category_creation"
+                        value="1"
+                        <?php checked(get_option('dsrw_allow_category_creation'), '1'); ?>
+                    />
+                    <span><?php esc_html_e('Si está activado, se creará la categoría sugerida si no existe.', 'autonews-rss-rewriter'); ?></span>
+                </div>
+            </div> <div id="tab-images" class="tab-content">
+                <div class="dsrw-field-group">
+                    <label for="dsrw_enable_thumbnail_generator">
+                        <?php esc_html_e( 'Generar miniaturas automáticas con el título', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="checkbox" 
+                        name="dsrw_enable_thumbnail_generator" 
+                        id="dsrw_enable_thumbnail_generator"
+                        value="1" 
+                        <?php checked( get_option('dsrw_enable_thumbnail_generator'), '1' ); ?> 
+                    />
+                    <span><?php esc_html_e( 'Activar generación automática si no hay imagen', 'autonews-rss-rewriter' ); ?></span>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_enable_thumbnail_generator">
-                    <?php esc_html_e( 'Generar miniaturas automáticas con el título', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="checkbox" 
-                    name="dsrw_enable_thumbnail_generator" 
-                    id="dsrw_enable_thumbnail_generator"
-                    value="1" 
-                    <?php checked( get_option('dsrw_enable_thumbnail_generator'), '1' ); ?> 
-                />
-                <span><?php esc_html_e( 'Activar generación automática si no hay imagen', 'autonews-rss-rewriter' ); ?></span>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_enable_image_extraction">
+                        <?php esc_html_e( 'Extraer imágenes del contenido', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="checkbox" 
+                        name="dsrw_enable_image_extraction" 
+                        id="dsrw_enable_image_extraction"
+                        value="1" 
+                        <?php checked( get_option('dsrw_enable_image_extraction'), '1' ); ?> 
+                    />
+                    <span><?php esc_html_e( 'Activar extracción de imágenes de los feeds', 'autonews-rss-rewriter' ); ?></span>
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_enable_image_extraction">
-                    <?php esc_html_e( 'Extraer imágenes del contenido', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="checkbox" 
-                    name="dsrw_enable_image_extraction" 
-                    id="dsrw_enable_image_extraction"
-                    value="1" 
-                    <?php checked( get_option('dsrw_enable_image_extraction'), '1' ); ?> 
-                />
-                <span><?php esc_html_e( 'Activar extracción de imágenes de los feeds', 'autonews-rss-rewriter' ); ?></span>
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_thumbnail_bg_color">
+                        <?php esc_html_e( 'Color de fondo para miniatura', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="color" 
+                        name="dsrw_thumbnail_bg_color" 
+                        id="dsrw_thumbnail_bg_color"
+                        value="<?php echo esc_attr( get_option('dsrw_thumbnail_bg_color', '#0073aa') ); ?>"
+                    />
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_thumbnail_bg_color">
-                    <?php esc_html_e( 'Color de fondo para miniatura', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="color" 
-                    name="dsrw_thumbnail_bg_color" 
-                    id="dsrw_thumbnail_bg_color"
-                    value="<?php echo esc_attr( get_option('dsrw_thumbnail_bg_color', '#0073aa') ); ?>"
-                />
-            </div>
+                <div class="dsrw-field-group">
+                    <label for="dsrw_thumbnail_text_color">
+                        <?php esc_html_e( 'Color del texto en miniatura', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="color" 
+                        name="dsrw_thumbnail_text_color" 
+                        id="dsrw_thumbnail_text_color"
+                        value="<?php echo esc_attr( get_option('dsrw_thumbnail_text_color', '#ffffff') ); ?>"
+                    />
+                </div>
 
-            <div class="dsrw-field-group">
-                <label for="dsrw_thumbnail_text_color">
-                    <?php esc_html_e( 'Color del texto en miniatura', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="color" 
-                    name="dsrw_thumbnail_text_color" 
-                    id="dsrw_thumbnail_text_color"
-                    value="<?php echo esc_attr( get_option('dsrw_thumbnail_text_color', '#ffffff') ); ?>"
-                />
-            </div>
-
-            <div class="dsrw-field-group">
-                <label for="dsrw_thumbnail_font_size">
-                    <?php esc_html_e( 'Tamaño de fuente en miniatura (px)', 'autonews-rss-rewriter' ); ?>
-                </label>
-                <input 
-                    type="number" 
-                    name="dsrw_thumbnail_font_size" 
-                    id="dsrw_thumbnail_font_size"
-                    value="<?php echo esc_attr( get_option('dsrw_thumbnail_font_size', 36) ); ?>" 
-                    min="12" 
-                    max="100"
-                />
-            </div>
-
-            <div class="dsrw-field-group">
-    <label for="dsrw_allow_category_creation">
-        <?php esc_html_e('Permitir crear categorías sugeridas por la IA', 'autonews-rss-rewriter'); ?>
-    </label>
-    <input
-        type="checkbox"
-        name="dsrw_allow_category_creation"
-        id="dsrw_allow_category_creation"
-        value="1"
-        <?php checked(get_option('dsrw_allow_category_creation'), '1'); ?>
-    />
-    <span><?php esc_html_e('Si está activado, se creará la categoría sugerida si no existe.', 'autonews-rss-rewriter'); ?></span>
-</div>
-
-            <?php submit_button(); ?>
-        </form>
-
-        <hr />
-
-        <h2><?php esc_html_e( 'Administrar Tareas Cron', 'autonews-rss-rewriter' ); ?></h2>
-        <p><?php esc_html_e( 'Programa o elimina la tarea cron para procesar los feeds RSS.', 'autonews-rss-rewriter' ); ?></p>
-        <form method="post">
-            <?php
-            wp_nonce_field( 'dsrw_schedule_cron_action', 'dsrw_schedule_cron_nonce' );
-            submit_button( __( 'Programar Tarea Cron', 'autonews-rss-rewriter' ), 'secondary', 'dsrw_schedule_cron', true, array( 'id' => 'dsrw_schedule_cron_button' ) );
+                <div class="dsrw-field-group">
+                    <label for="dsrw_thumbnail_font_size">
+                        <?php esc_html_e( 'Tamaño de fuente en miniatura (px)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="number" 
+                        name="dsrw_thumbnail_font_size" 
+                        id="dsrw_thumbnail_font_size"
+                        value="<?php echo esc_attr( get_option('dsrw_thumbnail_font_size', 36) ); ?>" 
+                        min="12" 
+                        max="100"
+                    />
+                </div>
+            </div> <?php 
+            // Botón de guardar para todas las pestañas de ajustes
+            submit_button(); 
             ?>
         </form>
-        <form method="post" style="margin-top: 10px;">
-            <?php
-            wp_nonce_field( 'dsrw_unschedule_cron_action', 'dsrw_unschedule_cron_nonce' );
-            submit_button( __( 'Eliminar Tarea Cron', 'autonews-rss-rewriter' ), 'secondary', 'dsrw_unschedule_cron', true, array( 'id' => 'dsrw_unschedule_cron_button' ) );
-            ?>
-        </form>
 
-        <hr />
-        
-        <h2><?php esc_html_e( 'Ejecutar Procesamiento Manualmente', 'autonews-rss-rewriter' ); ?></h2>
-        <p><?php esc_html_e( 'Haz clic para procesar inmediatamente todos los feeds RSS configurados.', 'autonews-rss-rewriter' ); ?></p>
-        
-        <p>
-            <button type="button" class="button button-primary" id="autonews-manual-run-button">
-                <?php esc_html_e( 'Ejecutar Manualmente', 'autonews-rss-rewriter' ); ?>
-            </button>
-            <span id="dsrw_manual_spinner" style="display:none; margin-left: 10px; vertical-align: middle;">⏳ Procesando...</span>
-        </p>
-        
-        <div id="autonews-manual-log" style="font-family: monospace; background: #f6f8fa; border: 1px solid #ccc; padding: 10px; margin-top: 10px; display: none; max-height: 400px; overflow-y: auto; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);"></div>
+        <div id="tab-tools" class="tab-content">
+            
+            <h2><?php esc_html_e( 'Administrar Tareas Cron', 'autonews-rss-rewriter' ); ?></h2>
+            <p><?php esc_html_e( 'Programa o elimina la tarea cron para procesar los feeds RSS.', 'autonews-rss-rewriter' ); ?></p>
+            <form method="post">
+                <?php
+                wp_nonce_field( 'dsrw_schedule_cron_action', 'dsrw_schedule_cron_nonce' );
+                submit_button( __( 'Programar Tarea Cron', 'autonews-rss-rewriter' ), 'secondary', 'dsrw_schedule_cron', true, array( 'id' => 'dsrw_schedule_cron_button' ) );
+                ?>
+            </form>
+            <form method="post" style="margin-top: 10px;">
+                <?php
+                wp_nonce_field( 'dsrw_unschedule_cron_action', 'dsrw_unschedule_cron_nonce' );
+                submit_button( __( 'Eliminar Tarea Cron', 'autonews-rss-rewriter' ), 'secondary', 'dsrw_unschedule_cron', true, array( 'id' => 'dsrw_unschedule_cron_button' ) );
+                ?>
+            </form>
 
+            <hr />
+            
+            <h2><?php esc_html_e( 'Ejecutar Procesamiento Manualmente', 'autonews-rss-rewriter' ); ?></h2>
+            <p><?php esc_html_e( 'Haz clic para procesar inmediatamente todos los feeds RSS configurados.', 'autonews-rss-rewriter' ); ?></p>
+            
+            <p>
+                <button type="button" class="button button-primary" id="autonews-manual-run-button">
+                    <?php esc_html_e( 'Ejecutar Manualmente', 'autonews-rss-rewriter' ); ?>
+                </button>
+                <span id="dsrw_manual_spinner" style="display:none; margin-left: 10px; vertical-align: middle;">⏳ Procesando...</span>
+            </p>
+            
+            <div id="autonews-manual-log" style="font-family: monospace; background: #f6f8fa; border: 1px solid #ccc; padding: 10px; margin-top: 10px; display: none; max-height: 400px; overflow-y: auto; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);"></div>
 
-    </div> <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const runButton = document.getElementById("autonews-manual-run-button");
-        const logBox = document.getElementById("autonews-manual-log");
-        const spinner = document.getElementById("dsrw_manual_spinner");
-
-        if (runButton && logBox && spinner) {
-            runButton.addEventListener("click", function(e) {
-                e.preventDefault();
-                
-                // Mostrar spinner y limpiar log
-                spinner.style.display = "inline-block";
-                runButton.disabled = true;
-                logBox.innerHTML = "⏳ Ejecutando feed manualmente...<br>";
-                logBox.style.display = "block";
-
-                // Usamos 'dsrwAjax.ajaxUrl' y 'dsrwAjax.nonce' que nos pasó wp_localize_script
-                fetch(dsrwAjax.ajaxUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    body: new URLSearchParams({
-                        action: "autonews_manual_run",
-                        nonce:  dsrwAjax.nonce 
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.data.logs && data.data.logs.length > 0) {
-                            data.data.logs.forEach(line => {
-                                logBox.innerHTML += esc_html(line) + "<br>";
-                            });
-                        } else {
-                            logBox.innerHTML += "✅ Proceso completado, pero no se generaron logs detallados.<br>";
-                        }
-                    } else {
-                        if (data.data.logs && data.data.logs.length > 0) {
-                             data.data.logs.forEach(line => {
-                                logBox.innerHTML += esc_html(line) + "<br>";
-                            });
-                        } else {
-                            logBox.innerHTML += "❌ Error inesperado al ejecutar.<br>";
-                        }
-                    }
-                    
-                    // Ocultar spinner y reactivar botón
-                    spinner.style.display = "none";
-                    runButton.disabled = false;
-                    logBox.scrollTop = logBox.scrollHeight; // Auto-scroll al final
-                })
-                .catch(error => {
-                    logBox.innerHTML += "❌ ERROR DE CONEXIÓN: " + esc_html(error.message) + "<br>";
-                    spinner.style.display = "none";
-                    runButton.disabled = false;
-                });
-            });
-        }
-
-        // Función simple para escapar HTML en JS y evitar XSS
-        function esc_html(str) {
-            return str.replace(/[&<>"']/g, function(m) {
-                return {
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#039;'
-                }[m];
-            });
-        }
-    });
-    </script>
-    <?php
-
+        </div> </div> <?php
     // --- MANEJO DE FORMULARIOS CRON (SIN AJAX) ---
-    // Esta parte se queda igual, ya que maneja los formularios de Programar/Eliminar Cron
+    // Esta lógica debe permanecer en la página para manejar los formularios de Cron
     
-    // Sección de acciones para cron
     if ( isset( $_POST['dsrw_schedule_cron'] ) ) {
         if ( ! isset( $_POST['dsrw_schedule_cron_nonce'] ) || ! wp_verify_nonce( $_POST['dsrw_schedule_cron_nonce'], 'dsrw_schedule_cron_action' ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Permiso denegado para programar la tarea cron.', 'autonews-rss-rewriter' ) . '</p></div>';
@@ -588,28 +524,19 @@ https://otro-sitio.com/feed"
             }
         }
     }
-
-    /* MODIFICACIÓN AJAX:
-    Se elimina el bloque 'if ( isset( $_POST['dsrw_manual_process'] ) ) { ... }'
-    porque esa lógica ahora se maneja 100% con AJAX.
-    */
 }
 
 
-// --- MODIFICACIÓN AJAX ---
-// Se reemplaza la función de simulación por la función REAL.
-// Ahora comprueba el nonce, los permisos y ejecuta el proceso real.
-
+// --- Callback de AJAX ---
+// Esta función permanece igual que nuestra última modificación.
 add_action('wp_ajax_autonews_manual_run', 'autonews_manual_run_callback');
 
 /**
  * Función de callback de AJAX para ejecutar el procesamiento manual de feeds.
- * Esta es la versión REAL que reemplaza la simulación.
  */
 function autonews_manual_run_callback() {
     
     // 1. Seguridad: Verificar Nonce y permisos
-    // Usamos el nonce 'dsrw_run_feeds_nonce' que definimos en wp_localize_script
     if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['nonce'] ), 'dsrw_run_feeds_nonce' ) ) {
         wp_send_json_error( [ 'logs' => [ '❌ Error de seguridad (Nonce inválido). Intenta recargar la página.' ] ], 403 );
     }
@@ -623,7 +550,6 @@ function autonews_manual_run_callback() {
     $logs[] = "▶️ " . esc_html__( 'Iniciando procesamiento manual...', 'autonews-rss-rewriter' );
 
     // 3. Ejecutar el proceso real (pasando el array $logs por referencia)
-    // dsrw_process_all_feeds llenará el array $logs con su progreso.
     try {
         dsrw_process_all_feeds( $logs );
     } catch (Exception $e) {
