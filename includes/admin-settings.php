@@ -22,6 +22,12 @@ function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_default_author', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_selected_language', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_enable_thumbnail_generator', 'sanitize_text_field' );
+    
+    // --- NUEVO AJUSTE ---
+    // Registramos el nuevo campo para guardar el ID de la imagen de fondo
+    register_setting( 'dsrw_options_group', 'dsrw_thumbnail_custom_bg_id', 'absint' ); 
+    // --- FIN NUEVO AJUSTE ---
+
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_bg_color', 'sanitize_hex_color' );
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_text_color', 'sanitize_hex_color' );
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_font_size', 'absint' );
@@ -62,12 +68,17 @@ function dsrw_admin_scripts($hook) {
         return;
     }
 
+    // --- NUEVO SCRIPT ---
+    // Carga los scripts de la biblioteca de medios de WordPress
+    wp_enqueue_media();
+    // --- FIN NUEVO SCRIPT ---
+
      // Encolar la hoja de estilo
     wp_enqueue_style(
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0.1', // Subir la versión para evitar caché
+        '1.0.1', 
         'all'
     );
 
@@ -75,8 +86,8 @@ function dsrw_admin_scripts($hook) {
     wp_enqueue_script(
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
-        array('jquery'), // jQuery es necesario para el nuevo script de pestañas
-        '1.0.1', // Subir la versión
+        array('jquery'), 
+        '1.0.1', 
         true
     );
 
@@ -415,8 +426,46 @@ https://otro-sitio.com/feed"
                 </div>
 
                 <div class="dsrw-field-group">
+                    <label for="dsrw-upload-bg-button">
+                        <?php esc_html_e( 'Imagen de Fondo Personalizada (para miniaturas generadas)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <?php
+                    // Obtenemos el ID de la imagen guardada
+                    $custom_bg_id = get_option('dsrw_thumbnail_custom_bg_id');
+                    $bg_image_url = '';
+                    if ( $custom_bg_id ) {
+                        // Obtenemos la URL de la imagen en tamaño mediano para la vista previa
+                        $bg_image_url = wp_get_attachment_image_url($custom_bg_id, 'medium');
+                    }
+                    ?>
+                    <div class="dsrw-bg-preview-wrapper" style="margin: 10px 0; <?php echo $custom_bg_id ? '' : 'display: none;'; ?>">
+                        <img id="dsrw-bg-preview" 
+                             src="<?php echo esc_url($bg_image_url); ?>" 
+                             style="max-width: 300px; height: auto; border: 1px solid #ddd;"/>
+                    </div>
+                    
+                    <input type="hidden" 
+                           id="dsrw_thumbnail_custom_bg_id" 
+                           name="dsrw_thumbnail_custom_bg_id" 
+                           value="<?php echo esc_attr($custom_bg_id); ?>">
+                    
+                    <button type="button" class="button" id="dsrw-upload-bg-button">
+                        <?php esc_html_e('Elegir Imagen', 'autonews-rss-rewriter'); ?>
+                    </button>
+                    <button type="button" 
+                            class="button button-link-delete" 
+                            id="dsrw-remove-bg-button" 
+                            style="<?php echo $custom_bg_id ? '' : 'display: none;'; ?>">
+                        <?php esc_html_e('Quitar Imagen', 'autonews-rss-rewriter'); ?>
+                    </button>
+
+                    <p class="description">
+                        <?php esc_html_e( 'Sube o elige una imagen de fondo. Si no eliges ninguna, se usará la imagen por defecto (wpblur.webp). Se recomienda 1200x630px.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+                <div class="dsrw-field-group">
                     <label for="dsrw_thumbnail_bg_color">
-                        <?php esc_html_e( 'Color de fondo para miniatura', 'autonews-rss-rewriter' ); ?>
+                        <?php esc_html_e( 'Color de Tinte de Fondo (Acento)', 'autonews-rss-rewriter' ); ?>
                     </label>
                     <input 
                         type="color" 
@@ -424,6 +473,7 @@ https://otro-sitio.com/feed"
                         id="dsrw_thumbnail_bg_color"
                         value="<?php echo esc_attr( get_option('dsrw_thumbnail_bg_color', '#0073aa') ); ?>"
                     />
+                    <p class="description"><?php esc_html_e( 'Este color se aplicará como una capa semitransparente sobre la imagen de fondo.', 'autonews-rss-rewriter' ); ?></p>
                 </div>
 
                 <div class="dsrw-field-group">
@@ -528,7 +578,6 @@ https://otro-sitio.com/feed"
 
 
 // --- Callback de AJAX ---
-// Esta función permanece igual que nuestra última modificación.
 add_action('wp_ajax_autonews_manual_run', 'autonews_manual_run_callback');
 
 /**

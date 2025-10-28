@@ -5,7 +5,7 @@
  * Descripción: Funciones para la gestión de imágenes, incluyendo validación, extracción y generación de miniaturas automáticas.
  *
  * Nota: Este archivo depende de otras funciones del plugin definidas en otros módulos, 
- *       como dsrw_write_log() (logs.php) o dsrw_send_error_email() (error-handling.php).
+ * como dsrw_write_log() (logs.php) o dsrw_send_error_email() (error-handling.php).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -131,21 +131,104 @@ function dsrw_extract_first_image( $html ) {
 
 /**
  * Carga la imagen de fondo para la generación de miniaturas.
+ * Primero intenta cargar la imagen personalizada por el usuario.
+ * Si falla o no existe, carga la imagen por defecto (wpblur.webp).
+ * * La imagen resultante SIEMPRE es un lienzo de 1200x630 (recortado al centro).
  *
- * @return mixed Recurso de imagen o false si ocurre un error.
+ * @return mixed Recurso de imagen GD (1200x630) o false si ocurre un error.
  */
 function dsrw_load_background_image() {
-    $bg_path = plugin_dir_path(__FILE__) . '../assets/wpblur.webp';
-    if ( ! file_exists($bg_path) ) {
-        dsrw_write_log('[AutoNews] Imagen de fondo no encontrada: ' . $bg_path);
-        return false;
+    $target_width = 1200;
+    $target_height = 630;
+    $final_canvas = imagecreatetruecolor($target_width, $target_height);
+    
+    $custom_bg_id = get_option('dsrw_thumbnail_custom_bg_id');
+    $source_image = false;
+    
+    // --- Intenta cargar la imagen personalizada ---
+    if ( $custom_bg_id > 0 ) {
+        $file_path = get_attached_file( $custom_bg_id );
+        
+        if ( $file_path && file_exists( $file_path ) ) {
+            $file_type = wp_check_filetype( $file_path );
+            dsrw_write_log('[AutoNews] Cargando imagen de fondo personalizada: ' . $file_path);
+            
+            // Intentar crear la imagen desde el archivo
+            switch ( $file_type['ext'] ) {
+                case 'jpeg':
+                case 'jpg':
+                    $source_image = @imagecreatefromjpeg( $file_path );
+                    break;
+                case 'png':
+                    $source_image = @imagecreatefrompng( $file_path );
+                    break;
+                case 'gif':
+                    $source_image = @imagecreatefromgif( $file_path );
+                    break;
+                case 'webp':
+                    $source_image = @imagecreatefromwebp( $file_path );
+                    break;
+                default:
+                    dsrw_write_log('[AutoNews] Error: Tipo de imagen de fondo personalizada no compatible: ' . $file_type['ext']);
+            }
+        } else {
+            dsrw_write_log('[AutoNews] Error: No se encontró el archivo para el ID de fondo personalizado: ' . $custom_bg_id);
+        }
     }
-    $bg_image = imagecreatefromwebp($bg_path);
-    if ( ! $bg_image ) {
-        dsrw_write_log('[AutoNews] Error al cargar la imagen de fondo.');
-        return false;
+
+    // --- Si no hay imagen personalizada (o falló), carga la de por defecto ---
+    if ( ! $source_image ) {
+        $bg_path = plugin_dir_path(__FILE__) . '../assets/wpblur.webp';
+        if ( ! file_exists($bg_path) ) {
+            dsrw_write_log('[AutoNews] Imagen de fondo por defecto no encontrada: ' . $bg_path);
+            imagedestroy($final_canvas); // Liberar memoria
+            return false;
+        }
+        if(!isset($file_path)) { // Solo registrar si no se intentó cargar una personalizada
+             dsrw_write_log('[AutoNews] Cargando imagen de fondo por defecto (wpblur.webp).');
+        }
+        $source_image = @imagecreatefromwebp($bg_path);
+        
+        if ( ! $source_image ) {
+            dsrw_write_log('[AutoNews] Error al cargar la imagen de fondo por defecto.');
+            imagedestroy($final_canvas);
+            return false;
+        }
     }
-    return $bg_image;
+    
+    // --- Redimensionar y centrar-recortar la imagen fuente en el lienzo final ---
+    $src_width = imagesx($source_image);
+    $src_height = imagesy($source_image);
+    
+    $src_ratio = $src_width / $src_height;
+    $target_ratio = $target_width / $target_height;
+
+    $src_x = 0;
+    $src_y = 0;
+    $src_w = $src_width;
+    $src_h = $src_height;
+
+    // Algoritmo de recorte central (cover)
+    if ($src_ratio > $target_ratio) {
+        // Imagen fuente es más ancha que el destino (recortar ancho)
+        $src_w = (int)($src_height * $target_ratio);
+        $src_x = (int) (($src_width - $src_w) / 2);
+    } else {
+        // Imagen fuente es más alta que el destino (recortar alto)
+        $src_h = (int)($src_width / $target_ratio);
+        $src_y = (int) (($src_height - $src_h) / 2);
+    }
+
+    // Copiar la imagen fuente (recortada) al lienzo final (redimensionada)
+    imagecopyresampled(
+        $final_canvas, $source_image,
+        0, 0, $src_x, $src_y,
+        $target_width, $target_height, $src_w, $src_h
+    );
+    
+    imagedestroy($source_image); // Liberar memoria de la imagen fuente
+
+    return $final_canvas; // Devuelve el lienzo final de 1200x630
 }
 
 /**
@@ -169,7 +252,8 @@ function dsrw_generate_thumbnail_with_text( $title ) {
     list($r1, $g1, $b1) = sscanf($bg_color_hex, "#%02x%02x%02x");
     list($r2, $g2, $b2) = sscanf($text_color_hex, "#%02x%02x%02x");
 
-    // Cargar imagen de fondo
+    // Cargar imagen de fondo (¡Ahora es la versión inteligente!)
+    // Ya viene recortada a 1200x630
     $bg_image = dsrw_load_background_image();
     if ( ! $bg_image ) {
         return false;
@@ -178,8 +262,10 @@ function dsrw_generate_thumbnail_with_text( $title ) {
     // Crear overlay translúcido sobre el fondo
     $overlay = imagecreatetruecolor($width, $height);
     imagesavealpha($overlay, true);
-    $overlay_color = imagecolorallocatealpha($overlay, $r1, $g1, $b1, 40);
+    // Ajustar la transparencia (alpha) a 40 (aprox 31%). 0=opaco, 127=transparente.
+    $overlay_color = imagecolorallocatealpha($overlay, $r1, $g1, $b1, 40); 
     imagefill($overlay, 0, 0, $overlay_color);
+    // Aplicar el tinte de color a la imagen de fondo
     imagecopy($bg_image, $overlay, 0, 0, 0, 0, $width, $height);
     imagedestroy($overlay);
 

@@ -113,4 +113,64 @@ jQuery(document).ready(function($) {
         });
     }
 
+    // --- ¡NUEVA LÓGICA! MANEJADOR DE LA BIBLIOTECA DE MEDIOS ---
+    
+    var mediaFrame;
+
+    $('#dsrw-upload-bg-button').on('click', function(e) {
+        e.preventDefault();
+
+        // Si el frame ya existe, reabrirlo
+        if (mediaFrame) {
+            mediaFrame.open();
+            return;
+        }
+
+        // Crear el frame de medios
+        mediaFrame = wp.media({
+            title: 'Elegir Imagen de Fondo',
+            button: {
+                text: 'Usar esta imagen'
+            },
+            multiple: false, // No permitir selección múltiple
+            library: {
+                type: 'image' // Solo mostrar imágenes
+            }
+        });
+
+        // Cuando se selecciona una imagen
+        mediaFrame.on('select', function() {
+            var attachment = mediaFrame.state().get('selection').first().toJSON();
+            
+            // Poner el ID en el input oculto
+            $('#dsrw_thumbnail_custom_bg_id').val(attachment.id);
+            
+            // Poner la URL en la vista previa (usar 'medium' o 'url')
+            var previewUrl = attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
+            $('#dsrw-bg-preview').attr('src', previewUrl);
+            
+            // Mostrar la vista previa y el botón de quitar
+            $('.dsrw-bg-preview-wrapper').show();
+            $('#dsrw-remove-bg-button').show();
+        });
+
+        // Abrir el frame
+        mediaFrame.open();
+    });
+
+    // Manejar clic en el botón "Quitar Imagen"
+    $('#dsrw-remove-bg-button').on('click', function(e) {
+        e.preventDefault();
+        
+        // Limpiar el input oculto
+        $('#dsrw_thumbnail_custom_bg_id').val('');
+        
+        // Limpiar la vista previa y ocultarla
+        $('#dsrw-bg-preview').attr('src', '');
+        $('.dsrw-bg-preview-wrapper').hide();
+        
+        // Ocultar este botón
+        $(this).hide();
+    });
+
 });
