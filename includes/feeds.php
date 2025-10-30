@@ -227,17 +227,18 @@ if ( $feed_category_setting === 'none' ) {
             $publish_date = current_time( 'mysql' );
             $post_status = 'publish';
         }
-        // Limpieza adicional del contenido:
+        
+        // --- LIMPIEZA POST-IA MEJORADA ---
         $nuevo_contenido = dsrw_cleanup_headings( $nuevo_contenido );
-        $nuevo_contenido = dsrw_cleanup_bold( $nuevo_contenido );
-        // NUEVA LÍNEA para eliminar figuras con src="#"
+        $nuevo_contenido = dsrw_cleanup_bold( $nuevo_contenido ); // <-- ¡ESTA FUNCIÓN AHORA ES MÁS POTENTE!
         $nuevo_contenido = dsrw_remove_placeholder_images( $nuevo_contenido );  
-        // Post-procesamiento: eliminar pies de foto o leyendas
         $nuevo_contenido = preg_replace('/<figcaption>.*?<\/figcaption>/is', '', $nuevo_contenido);
         $nuevo_contenido = preg_replace('/\s*(Pie de foto:|Leyenda:).*$/mi', '', $nuevo_contenido);
+        // --- FIN LIMPIEZA POST-IA ---
+
         $post_data = array(
             'post_title'    => wp_strip_all_tags( $nuevo_titulo ),
-            'post_content'  => wp_kses_post( $nuevo_contenido ),
+            'post_content'  => wp_kses_post( $nuevo_contenido ), // wp_kses_post también limpia HTML malformado
             'post_status'   => $post_status,
             'post_date'     => $publish_date,
             'post_name'     => $nuevo_slug,
@@ -437,17 +438,40 @@ function dsrw_cleanup_headings($content) {
 }
 
 /**
- * Reemplaza etiquetas <b> por <strong> y elimina repeticiones innecesarias.
+ * Reemplaza etiquetas <b> por <strong>, convierte Markdown (**) a <strong>,
+ * y repara HTML roto (etiquetas sin cerrar/abrir).
  *
  * @param string $content Contenido HTML.
- * @return string Contenido con negritas optimizadas.
+ * @return string Contenido con negritas optimizadas y reparadas.
  */
 function dsrw_cleanup_bold($content) {
+    
+    // --- NUEVA MODIFICACIÓN ---
+    // 1. Convertir Markdown (**) a <strong>
+    // Busca **texto** y lo reemplaza por <strong>texto</strong>
+    // El modificador 's' hace que '.' incluya saltos de línea, por si la negrita los tiene.
+    $content = preg_replace('/\*\*(.*?)\*\*/s', '<strong>$1</strong>', $content);
+    // --- FIN MODIFICACIÓN ---
+
+    // 2. Convertir <b> a <strong> (lógica anterior)
     $content = str_ireplace(array('<b>', '</b>'), array('<strong>', '</strong>'), $content);
+    
+    // --- NUEVA MODIFICACIÓN ---
+    // 3. Reparar HTML roto (etiquetas huérfanas)
+    // Esta es la función principal de WordPress para arreglar HTML mal formado.
+    // Arreglará un <strong> sin </strong>, o un </strong> sin <strong>.
+    if ( function_exists('force_balance_tags') ) {
+        $content = force_balance_tags($content);
+    }
+    // --- FIN MODIFICACIÓN ---
+
+    // 4. Eliminar duplicados (lógica anterior)
     $content = preg_replace('/(<strong>\s*)+/', '<strong>', $content);
     $content = preg_replace('/(\s*<\/strong>)+/', '</strong>', $content);
+    
     return $content;
 }
+
 
 /**
  * Elimina <figure> (o <img>) cuyo src sea "#" (o vacío).
