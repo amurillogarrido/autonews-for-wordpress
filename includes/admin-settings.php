@@ -8,7 +8,6 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Evita acceso directo.
 }
 
-// --- ¡NUEVA FUNCIÓN! ---
 /**
  * Sanitiza el array de mapeo de categorías de feed.
  * Asegura que solo se guarden valores válidos ('', 'none', o IDs numéricos).
@@ -33,11 +32,8 @@ function sanitize_feed_categories_array( $input ) {
             }
         }
     }
-    // Reindexar el array por si acaso (aunque no debería ser necesario con índices numéricos)
-    // return array_values($sanitized); // Comentado: Mejor mantener los índices originales que vienen del formulario
     return $sanitized;
 }
-// --- FIN NUEVA FUNCIÓN ---
 
 
 /**
@@ -45,14 +41,16 @@ function sanitize_feed_categories_array( $input ) {
  */
 function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_rss_urls', 'dsrw_validate_rss_urls' );
-    
-    // --- MODIFICACIÓN AQUÍ ---
-    // Usamos la nueva función de sanitización para el mapeo de categorías
     register_setting( 'dsrw_options_group', 'dsrw_feed_categories', 'sanitize_feed_categories_array' );
-    // --- FIN MODIFICACIÓN ---
-
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_key', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_base', 'sanitize_text_field' );
+
+    // --- NUEVOS AJUSTES (MEJORA 2) ---
+    register_setting( 'dsrw_options_group', 'dsrw_openai_model', 'sanitize_text_field' );
+    register_setting( 'dsrw_options_group', 'dsrw_openai_temperature', 'floatval' );
+    register_setting( 'dsrw_options_group', 'dsrw_custom_prompt' ); // No sanitizar para permitir variables {$titulo}
+    // --- FIN NUEVOS AJUSTES ---
+
     register_setting( 'dsrw_options_group', 'dsrw_num_articulos', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_publish_delay', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_cron_interval', 'sanitize_text_field' );
@@ -108,7 +106,7 @@ function dsrw_admin_scripts($hook) {
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0.2', 
+        '1.0.3', // Subir versión para caché
         'all'
     );
 
@@ -117,7 +115,7 @@ function dsrw_admin_scripts($hook) {
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
         array('jquery', 'media-models'), 
-        '1.0.2', 
+        '1.0.3', // Subir versión para caché
         true
     );
 
@@ -156,10 +154,10 @@ function dsrw_settings_page() {
     $total_feeds = count( array_filter( array_map( 'trim', explode( "\n", get_option('dsrw_rss_urls') ) ) ) );
     $selected_language = get_option( 'dsrw_selected_language', 'es' );
     
-    // Debug: Muestra el valor guardado (puedes borrar esto después)
-    // echo '<pre>Valor guardado en dsrw_feed_categories: ';
-    // var_dump(get_option('dsrw_feed_categories'));
-    // echo '</pre>';
+    // Obtener valores de la Mejora 2
+    $current_model = get_option( 'dsrw_openai_model', 'gpt-4.1-nano' ); // Recomendar 4.1-nano por defecto
+    $current_temp = get_option( 'dsrw_openai_temperature', 0.2 );
+    $custom_prompt = get_option( 'dsrw_custom_prompt', '' );
 
     ?>
 
@@ -176,7 +174,7 @@ function dsrw_settings_page() {
 
         <h2 class="nav-tab-wrapper">
             <a href="#tab-main" class="nav-tab"><?php esc_html_e( 'Configuración Principal', 'autonews-rss-rewriter' ); ?></a>
-            <a href="#tab-api" class="nav-tab"><?php esc_html_e( 'API (OpenAI)', 'autonews-rss-rewriter' ); ?></a>
+            <a href="#tab-api" class="nav-tab"><?php esc_html_e( 'API y Modelo (OpenAI)', 'autonews-rss-rewriter' ); ?></a>
             <a href="#tab-publishing" class="nav-tab"><?php esc_html_e( 'Publicación', 'autonews-rss-rewriter' ); ?></a>
             <a href="#tab-images" class="nav-tab"><?php esc_html_e( 'Imágenes', 'autonews-rss-rewriter' ); ?></a>
             <a href="#tab-tools" class="nav-tab"><?php esc_html_e( 'Herramientas', 'autonews-rss-rewriter' ); ?></a>
@@ -211,13 +209,11 @@ https://otro-sitio.com/feed"
                     $feed_categories = get_option( 'dsrw_feed_categories', array() ); // Obtiene el array guardado
                     $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
                     
-                    // Asegúrate de que $feed_categories sea un array
                     if (!is_array($feed_categories)) {
                         $feed_categories = array();
                     }
 
                     foreach ( $rss_urls as $index => $url ) :
-                        // Obtiene el valor guardado para este índice específico, o '' si no existe
                         $saved_value = isset($feed_categories[$index]) ? $feed_categories[$index] : ''; 
                         ?>
                         <div class="dsrw-feed-mapping">
@@ -233,7 +229,7 @@ https://otro-sitio.com/feed"
                                 <?php foreach ( $categories as $category ) : ?>
                                     <option 
                                         value="<?php echo esc_attr( $category->term_id ); ?>" 
-                                        <?php selected( $saved_value, (string) $category->term_id ); // Compara como strings ?>
+                                        <?php selected( $saved_value, (string) $category->term_id ); ?>
                                     >
                                         <?php echo esc_html( $category->name ); ?>
                                     </option>
@@ -338,7 +334,72 @@ https://otro-sitio.com/feed"
                         <?php esc_html_e( 'URL base de la API de OpenAI. Modifícala solo si es necesario.', 'autonews-rss-rewriter' ); ?>
                     </p>
                 </div>
-            </div> <div id="tab-publishing" class="tab-content">
+
+                <div class="dsrw-field-group">
+                    <label><?php esc_html_e( 'Modelo de IA', 'autonews-rss-rewriter' ); ?></label>
+                    
+                    <div class="dsrw-radio-option">
+                        <input type="radio" id="model-gpt-4-1-nano" name="dsrw_openai_model" value="gpt-4.1-nano" <?php checked( $current_model, 'gpt-4.1-nano' ); ?>>
+                        <label for="model-gpt-4-1-nano"><strong>gpt-4.1-nano (Recomendado)</strong></label>
+                        <p class="description">
+                            <?php esc_html_e( 'El mejor equilibrio. Sonido más natural en español y menos errores de formato. Modelo estable y probado.', 'autonews-rss-rewriter' ); ?>
+                        </p>
+                    </div>
+
+                    <div class="dsrw-radio-option">
+                        <input type="radio" id="model-gpt-5-nano" name="dsrw_openai_model" value="gpt-5-nano" <?php checked( $current_model, 'gpt-5-nano' ); ?>>
+                        <label for="model-gpt-5-nano"><strong>gpt-5-nano</strong></label>
+                        <p class="description">
+                            <?php esc_html_e( 'El más rápido y barato. Puede sonar un poco más "anglosajón" o neutro. Excelente si el coste es la prioridad absoluta.', 'autonews-rss-rewriter' ); ?>
+                        </p>
+                    </div>
+                    
+                    <div class="dsrw-radio-option">
+                        <input type="radio" id="model-gpt-4o-mini" name="dsrw_openai_model" value="gpt-4o-mini" <?php checked( $current_model, 'gpt-4o-mini' ); ?>>
+                        <label for="model-gpt-4o-mini"><strong>gpt-4o-mini</strong></label>
+                        <p class="description">
+                            <?php esc_html_e( 'El modelo "mini" de la generación anterior. Sólido y fiable.', 'autonews-rss-rewriter' ); ?>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="dsrw-field-group">
+                    <label for="dsrw_openai_temperature">
+                        <?php esc_html_e( 'Temperatura (Creatividad)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <input 
+                        type="number" 
+                        name="dsrw_openai_temperature" 
+                        id="dsrw_openai_temperature"
+                        value="<?php echo esc_attr( $current_temp ); ?>" 
+                        min="0.1" 
+                        max="2.0"
+                        step="0.1"
+                    />
+                    <p class="description">
+                        <?php esc_html_e( 'Un valor bajo (ej. 0.2) es más literal y predecible. Un valor alto (ej. 1.0) es más creativo y aleatorio.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+
+                <div class="dsrw-field-group">
+                    <label for="dsrw_custom_prompt">
+                        <?php esc_html_e( 'Prompt Personalizado (Avanzado)', 'autonews-rss-rewriter' ); ?>
+                    </label>
+                    <textarea 
+                        id="dsrw_custom_prompt" 
+                        name="dsrw_custom_prompt" 
+                        rows="15" 
+                        cols="50" 
+                        placeholder="<?php esc_attr_e( 'Déjalo vacío para usar los prompts por defecto del plugin (recomendado).
+Si lo rellenas, DEBES incluir las variables {$titulo} y {$contenido}.
+Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "category", y "excerpt".', 'autonews-rss-rewriter' ); ?>"
+                    ><?php echo esc_textarea( $custom_prompt ); ?></textarea>
+                    <p class="description">
+                        <?php esc_html_e( 'Modifica bajo tu propio riesgo. Si el JSON devuelto no es correcto, el plugin fallará.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+
+                </div> <div id="tab-publishing" class="tab-content">
                 <div class="dsrw-field-group">
                     <label for="dsrw_num_articulos">
                         <?php esc_html_e( 'Número de artículos a procesar por feed', 'autonews-rss-rewriter' ); ?>

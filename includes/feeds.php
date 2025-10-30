@@ -547,13 +547,25 @@ function dsrw_is_duplicate( $hash ) {
  */
 function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base ) {
     $language = get_option( 'dsrw_selected_language', 'es' );
-    $prompt = dsrw_get_prompt_template( $language, $titulo, $contenido );
+    $prompt = dsrw_get_prompt_template( $language, $titulo, $contenido ); // Esta función ya maneja el prompt personalizado
+
+    // --- NUEVA MEJORA 2 ---
+    // Leer los ajustes de modelo y temperatura de la base de datos
+    $model = get_option( 'dsrw_openai_model', 'gpt-4.1-nano' ); // Default: 4.1-nano
+    $temperature = (float) get_option( 'dsrw_openai_temperature', 0.2 ); // Default: 0.2
+    
+    // Asegurarse de que el modelo no esté vacío
+    if ( empty($model) ) {
+        $model = 'gpt-4.1-nano';
+    }
+    // --- FIN MEJORA 2 ---
+
     $post_data = array(
-        'model'             => 'gpt-4o-mini',
+        'model'             => $model, // <-- ¡AHORA ES DINÁMICO!
         'messages'          => array(
             array( 'role' => 'user', 'content' => $prompt )
         ),
-        'temperature'       => 0.2,
+        'temperature'       => $temperature, // <-- ¡AHORA ES DINÁMICO!
         'max_tokens'        => 1500,
         'frequency_penalty' => 0.5, // Reduce repeticiones
         'presence_penalty'  => 0.3, // Mejor coherencia temática
@@ -563,7 +575,9 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base ) {
         'Authorization' => 'Bearer ' . $api_key
     );
     dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Enviando solicitud a la API: ', 'autonews-rss-rewriter' ) . $api_base . '/v1/chat/completions' );
-    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Datos enviados: ', 'autonews-rss-rewriter' ) . json_encode( $post_data ) );
+    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Usando Modelo: ', 'autonews-rss-rewriter' ) . $model . ', Temp: ' . $temperature );
+    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Datos enviados (prompt recortado): ', 'autonews-rss-rewriter' ) . substr(json_encode( $post_data ), 0, 500) . '...' );
+    
     $response = wp_remote_post(
         $api_base . '/v1/chat/completions',
         array(
@@ -580,7 +594,7 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base ) {
     $code = wp_remote_retrieve_response_code( $response );
     $response_body = wp_remote_retrieve_body( $response );
     dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Código HTTP de respuesta: ', 'autonews-rss-rewriter' ) . $code );
-    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Cuerpo de la respuesta: ', 'autonews-rss-rewriter' ) . $response_body );
+    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Cuerpo de la respuesta (recortado): ', 'autonews-rss-rewriter' ) . substr($response_body, 0, 500) . '...' );
     if ( $code !== 200 ) {
         if ( $code === 429 ) {
             dsrw_send_error_email( __( 'AutoNews RSS Rewriter - Límite de Tasa Excedido', 'autonews-rss-rewriter' ), __( 'Has excedido el límite de tasa de la API. Intenta nuevamente más tarde.', 'autonews-rss-rewriter' ) );

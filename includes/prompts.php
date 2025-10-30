@@ -19,6 +19,26 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return string Prompt a enviar a la API de OpenAI.
  */
 function dsrw_get_prompt_template( $language, $titulo, $contenido ) {
+
+    // --- NUEVA MEJORA 2 ---
+    // Comprobar si existe un prompt personalizado en los ajustes
+    $custom_prompt = get_option('dsrw_custom_prompt', '');
+    $custom_prompt = trim($custom_prompt);
+
+    if ( ! empty($custom_prompt) ) {
+        // Si hay un prompt personalizado, usarlo.
+        // Reemplazamos las variables {$titulo} y {$contenido}
+        $prompt = str_replace(
+            array('{$titulo}', '{$contenido}'),
+            array($titulo, $contenido), // Reemplaza los placeholders por el contenido real
+            $custom_prompt
+        );
+        return $prompt;
+    }
+    // --- FIN MEJORA 2 ---
+
+
+    // Si no hay prompt personalizado, usar la lógica de siempre
     $prompt_templates = array(
         'es' => <<<EOT
 Eres un periodista profesional especializado en reescribir artículos para blogs. Reescribe el siguiente artículo y su título para que no parezca copiado, tenga sentido y no mencione nada de otros diarios, no repitas el título como h2, crea h2 para facilitar la lectura, los títulos siempre deben comenzar con la letra mayúscula y devuélvelo exclusivamente en un objeto JSON con las siguientes claves exactas en inglés:
@@ -222,6 +242,7 @@ EOT,
 
     // Si existe una plantilla para el idioma solicitado, se devuelve.
     // De lo contrario, se usa la plantilla en español ('es') por defecto.
+    // Las variables ya están interpoladas por la sintaxis HEREDOC.
     return isset( $prompt_templates[ $language ] )
         ? $prompt_templates[ $language ]
         : $prompt_templates['es'];
