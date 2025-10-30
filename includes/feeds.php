@@ -151,13 +151,15 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
         }
         
         // --- MODIFICACIÓN DE CLAVES JSON ---
-        // Se leen las claves en inglés ("title") en lugar de en español ("Título")
         $nuevo_titulo = isset( $reescrito['title'] ) ? $reescrito['title'] : '';
         $nuevo_contenido = isset( $reescrito['content'] ) ? $reescrito['content'] : '';
         $nuevo_slug = isset( $reescrito['slug'] ) ? sanitize_title( $reescrito['slug'] ) : '';
         $categoria_nombre = isset( $reescrito['category'] ) ? sanitize_text_field( $reescrito['category'] ) : '';
         $excerpt = isset( $reescrito['excerpt'] ) ? sanitize_text_field( $reescrito['excerpt'] ) : '';
-        // --- FIN MODIFICACIÓN DE CLAVES JSON ---
+        
+        // --- ¡NUEVA MEJORA 3! (Lectura de Tags) ---
+        $nuevas_etiquetas = isset( $reescrito['tags'] ) && is_array( $reescrito['tags'] ) ? $reescrito['tags'] : array();
+        // --- FIN MEJORA 3 ---
 
 
         // --- MODIFICACIÓN DE CATEGORÍAS ---
@@ -247,6 +249,17 @@ if ( $feed_category_setting === 'none' ) {
             'post_author'   => $author_id,
             'post_category' => ( $categoria_final > 0 && get_term( $categoria_final, 'category' ) ) ? array( $categoria_final ) : array(),
         );
+
+        // --- ¡NUEVA MEJORA 3! (Asignación de Tags) ---
+        $enable_tags = get_option('dsrw_enable_tags', 0);
+        if ( $enable_tags && ! empty($nuevas_etiquetas) ) {
+            // Sanitizar las etiquetas por si acaso
+            $tags_limpias = array_map( 'sanitize_text_field', $nuevas_etiquetas );
+            $post_data['tags_input'] = $tags_limpias;
+            dsrw_write_log('[AutoNews] Asignando ' . count($tags_limpias) . ' etiquetas al post.');
+        }
+        // --- FIN MEJORA 3 ---
+
         $post_id = wp_insert_post( $post_data );
 
 if ( is_wp_error( $post_id ) ) {

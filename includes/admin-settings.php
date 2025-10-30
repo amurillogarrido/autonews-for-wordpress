@@ -44,13 +44,9 @@ function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_feed_categories', 'sanitize_feed_categories_array' );
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_key', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_openai_api_base', 'sanitize_text_field' );
-
-    // --- NUEVOS AJUSTES (MEJORA 2) ---
     register_setting( 'dsrw_options_group', 'dsrw_openai_model', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_openai_temperature', 'floatval' );
-    register_setting( 'dsrw_options_group', 'dsrw_custom_prompt' ); // No sanitizar para permitir variables {$titulo}
-    // --- FIN NUEVOS AJUSTES ---
-
+    register_setting( 'dsrw_options_group', 'dsrw_custom_prompt' ); 
     register_setting( 'dsrw_options_group', 'dsrw_num_articulos', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_publish_delay', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_cron_interval', 'sanitize_text_field' );
@@ -63,6 +59,10 @@ function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_thumbnail_font_size', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_enable_image_extraction', 'intval' );
     register_setting('dsrw_options_group', 'dsrw_allow_category_creation', 'intval');
+
+    // --- ¡NUEVO AJUSTE! (Mejora 3: Tags) ---
+    register_setting('dsrw_options_group', 'dsrw_enable_tags', 'intval');
+    // --- FIN NUEVO AJUSTE ---
 }
 add_action( 'admin_init', 'dsrw_register_settings' );
 
@@ -106,7 +106,7 @@ function dsrw_admin_scripts($hook) {
         'dsrw-admin-css',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.css',
         array(),
-        '1.0.3', // Subir versión para caché
+        '1.0.4', // Subir versión para caché
         'all'
     );
 
@@ -115,7 +115,7 @@ function dsrw_admin_scripts($hook) {
         'dsrw-admin-js',
         plugin_dir_url(__FILE__) . '../assets/dsrw-admin.js',
         array('jquery', 'media-models'), 
-        '1.0.3', // Subir versión para caché
+        '1.0.4', // Subir versión para caché
         true
     );
 
@@ -506,7 +506,21 @@ Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "catego
                     />
                     <span><?php esc_html_e('Si está activado, se creará la categoría sugerida si no existe.', 'autonews-rss-rewriter'); ?></span>
                 </div>
-            </div> <div id="tab-images" class="tab-content">
+
+                <div class="dsrw-field-group">
+                    <label for="dsrw_enable_tags">
+                        <?php esc_html_e('Generar Etiquetas (Tags) Automáticamente', 'autonews-rss-rewriter'); ?>
+                    </label>
+                    <input
+                        type="checkbox"
+                        name="dsrw_enable_tags"
+                        id="dsrw_enable_tags"
+                        value="1"
+                        <?php checked(get_option('dsrw_enable_tags'), '1'); ?>
+                    />
+                    <span><?php esc_html_e('Activar para que la IA sugiera y asigne etiquetas (tags) al post.', 'autonews-rss-rewriter'); ?></span>
+                </div>
+                </div> <div id="tab-images" class="tab-content">
                 <div class="dsrw-field-group">
                     <label for="dsrw_enable_thumbnail_generator">
                         <?php esc_html_e( 'Generar miniaturas automáticas con el título', 'autonews-rss-rewriter' ); ?>
