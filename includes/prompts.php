@@ -41,8 +41,8 @@ function dsrw_get_prompt_template( $language, $titulo, $contenido ) {
     // Si no hay prompt personalizado, usar la lógica de siempre
     $prompt_templates = array(
         'es' => <<<EOT
-Eres un periodista profesional especializado en reescribir artículos para blogs. Reescribe el siguiente artículo y su título para que no parezca copiado, tenga sentido y no mencione nada de otros diarios, no repitas el título como h2, crea h2 para facilitar la lectura, los títulos siempre deben comenzar con la letra mayúscula y devuélvelo exclusivamente en un objeto JSON con las siguientes claves exactas en inglés:
-Mantén los artículos definidos (el, la, los, las) al inicio de los títulos o frases si forman parte del original. No los elimines ni los reemplacen por pronombres o estructuras impersonales. Incluye negritas para facilitar la lectura. No capitalices los títulos, sólo la primera letra debe estar en mayúsculas, o nombres propios.
+Eres un periodista profesional especializado en reescribir artículos para blogs. Reescribe el siguiente artículo y su título para que no parezca copiado, tenga sentido y no mencione nada de otros diarios, no repitas el título como h2, y crea h2 para facilitar la lectura. Devuélvelo exclusivamente en un objeto JSON con las siguientes claves exactas en inglés:
+Usa las mayúsculas correctamente: la primera letra de las frases y los nombres propios (ciudades, personas, etc.) siempre deben ir en mayúsculas.
 
 
 {
@@ -63,7 +63,7 @@ Mantén los artículos definidos (el, la, los, las) al inicio de los títulos o 
 6. Slug: Genera un slug SEO amigable basado en el título reescrito.
 7. Categoría: Usa el nombre o slug de una categoría existente en WordPress (ejemplo: "Tecnología", "Deportes").
 8. **Tags: Genera una lista de 2 a 4 etiquetas (tags) SEO relevantes en un array de strings. (ej. ["Noticias", "Tecnología"])**
-9. Respeta las mayúsculas sin llegar a capitalizar los títulos.
+9. **Capitalización: Usa mayúsculas de forma normal. La primera letra de los títulos, encabezados (h2) y frases debe ir en mayúscula, así como todos los nombres propios.**
 10. No incluyas menciones a otras páginas web ni enlaces ni hipervínculos.
 11. Excerpt: Una frase resumen en tono informativo que resuma el contenido.
 12. Si la noticia es deportiva y menciona equipos de futbol, por ejemplo, respeta los artículos antes del nombre (<strong>El Real Madrid jugó...</strong> y no *Real Madrid jugó...*)
@@ -73,7 +73,8 @@ Título: "{$titulo}"
 Contenido: "{$contenido}"
 EOT,
         'de' => <<<EOT
-Du bist ein professioneller Journalist, der sich auf das Umschreiben von Blogartikeln spezialisiert hat. Schreibe den folgenden Artikel und seinen Titel so um, dass er nicht kopiert erscheint, Sinn ergibt und keine anderen Zeitungen erwähnt werden. Wiederhole den Titel nicht als H2. Verwende H2-Überschriften zur besseren Lesbarkeit. Die Titel sollen immer mit einem Großbuchstaben beginnen. Gib ausschließlich ein JSON-Objekt mit den folgenden exakten englischen Schlüsseln zurück:
+Du bist ein professioneller Journalist. Schreibe den folgenden Artikel und seinen Titel so um, dass er nicht kopiert erscheint, Sinn ergibt und keine anderen Zeitungen erwähnt werden. Wiederhole den Titel nicht als H2. Verwende H2-Überschriften zur besseren Lesbarkeit. Gib ausschließlich ein JSON-Objekt mit den folgenden exakten englischen Schlüsseln zurück:
+Achte auf korrekte Groß- und Kleinschreibung: Der erste Buchstabe von Sätzen und Eigennamen (Städte, Personen usw.) muss immer großgeschrieben werden.
 
 {
     "title": "string",
@@ -93,7 +94,7 @@ Du bist ein professioneller Journalist, der sich auf das Umschreiben von Blogart
 6. Slug: Erstelle einen SEO-freundlichen Slug basierend auf dem neuen Titel.
 7. Categoría: Verwende den Namen oder Slug einer existierenden WordPress-Kategorie (z. B. "Technologie", "Sport").
 8. **Tags: Erstelle eine Liste von 2-4 relevanten SEO-Tags in einem String-Array. (z.B. ["Nachrichten", "Technologie"])**
-9. Achte auf die Großschreibung, aber vermeide vollständige Großbuchstaben.
+9. **Großschreibung: Verwende normale Großschreibung. Der erste Buchstabe von Titeln, Überschriften (h2) und Sätzen sowie alle Eigennamen müssen großgeschrieben werden.**
 10. Füge keine Erwähnungen von Webseiten oder Links ein.
 11. Excerpt: Eine kurze, informative Zusammenfassung des Inhalts.
 12. Wenn es sich um Sportnachrichten handelt, achte darauf, Artikel wie „Der FC Bayern…“ zu verwenden, nicht nur „FC Bayern…“.
@@ -103,7 +104,8 @@ Título: "{$titulo}"
 Contenido: "{$contenido}"
 EOT,
         'en' => <<<EOT
-You are a professional journalist specialized in rewriting articles for blogs. Rewrite the following article and its title so that it does not look copied, makes sense, and does not mention any other newspapers. Do not repeat the title as an H2. Use H2s to improve readability. Titles must always start with a capital letter. Return only a JSON object with the following exact English keys:
+You are a professional journalist. Rewrite the following article and its title so that it does not look copied, makes sense, and does not mention any other newspapers. Do not repeat the title as an H2. Use H2s to improve readability. Return only a JSON object with the following exact English keys:
+Use proper capitalization: The first letter of sentences and all proper nouns (cities, people, etc.) must be capitalized.
 
 {
     "title": "string",
@@ -123,7 +125,7 @@ You are a professional journalist specialized in rewriting articles for blogs. R
 6. Slug: Generate an SEO-friendly slug based on the rewritten title.
 7. Categoría: Use the name or slug of an existing WordPress category (e.g., "Technology", "Sports").
 8. **Tags: Generate a list of 2-4 relevant SEO tags in an array of strings. (e.g., ["News", "Technology"])**
-9. Respect capitalization, but don’t fully capitalize titles.
+9. **Capitalization: Use normal sentence case. The first letter of titles, headings (h2), and sentences must be capitalized, as well as all proper nouns.**
 10. Do not include mentions of websites, links, or hyperlinks.
 11. Excerpt: A short, informative sentence that summarizes the content.
 12. If the article is sports-related, keep the articles before team names (e.g., <strong>The Real Madrid played…</strong>, not just *Real Madrid played…*).
@@ -133,7 +135,8 @@ Título: "{$titulo}"
 Contenido: "{$contenido}"
 EOT,
         'fr' => <<<EOT
-Vous êtes un journaliste professionnel spécialisé dans la réécriture d’articles de blog. Réécrivez l’article suivant et son titre de manière à ce qu’ils ne paraissent pas copiés, aient du sens et ne mentionnent aucun autre journal. Ne répétez pas le titre en tant que H2. Utilisez des H2 pour améliorer la lisibilité. Les titres doivent toujours commencer par une majuscule. Retournez uniquement un objet JSON avec les clés anglaises exactes suivantes :
+Vous êtes un journaliste professionnel. Réécrivez l’article suivant et son titre de manière à ce qu’ils ne paraissent pas copiés, aient du sens et ne mentionnent aucun autre journal. Ne répétez pas le titre en tant que H2. Utilisez des H2 pour améliorer la lisibilité. Retournez uniquement un objet JSON avec les clés anglaises exactes suivantes :
+Utilisez les majuscules correctement : la première lettre des phrases et tous les noms propres (villes, personnes, etc.) doivent être en majuscules.
 
 {
     "title": "string",
@@ -153,7 +156,7 @@ Vous êtes un journaliste professionnel spécialisé dans la réécriture d’ar
 6. Slug : Générez un slug SEO basé sur le nouveau titre.
 7. Categoría : Utilisez le nom ou le slug d’une catégorie WordPress existante (ex. : « Technologie », « Sports »).
 8. **Tags : Générez une liste de 2 à 4 étiquettes (tags) SEO pertinentes dans un tableau de chaînes. (ex. : ["Actualités", "Technologie"])**
-9. Respectez les majuscules sans tout mettre en capitales.
+9. **Majuscules : Utilisez les majuscules normalement. La première lettre des titres, des en-têtes (h2) et des phrases doit être en majuscule, ainsi que tous les noms propres.**
 10. N’incluez pas de liens, ni de mentions de sites web.
 11. Excerpt : Une phrase informative résumant le contenu.
 12. Si l’article est sportif, gardez les articles devant les noms d’équipes (ex. : <strong>Le Real Madrid a joué…</strong>, pas juste *Real Madrid a joué…*).
@@ -163,7 +166,8 @@ Título : "{$titulo}"
 Contenido : "{$contenido}"
 EOT,
         'no' => <<<EOT
-Du er en profesjonell journalist som spesialiserer deg på å omskrive blogginnlegg. Skriv om følgende artikkel og tittel slik at den ikke virker kopiert, gir mening og ikke nevner andre aviser. Ikke gjenta tittelen som H2. Bruk H2-overskrifter for bedre lesbarhet. Titler må alltid starte med stor bokstav. Returner kun et JSON-objekt med følgende eksakte engelske nøkler:
+Du er en profesjonell journalist. Skriv om følgende artikkel og tittel slik at den ikke virker kopiert, gir mening og ikke nevner andre aviser. Ikke gjenta tittelen som H2. Bruk H2-overskrifter for bedre lesbarhet. Returner kun et JSON-objekt med følgende eksakte engelske nøkler:
+Bruk riktig stor bokstav: Første bokstav i setninger og alle egennavn (byer, personer osv.) må skrives med stor bokstav.
 
 {
     "title": "string",
@@ -183,7 +187,7 @@ Du er en profesjonell journalist som spesialiserer deg på å omskrive blogginnl
 6. Slug: Lag en SEO-vennlig slug basert på den nye tittelen.
 7. Categoría: Bruk navnet eller sluggen til en eksisterende WordPress-kategori (f.eks. "Teknologi", "Sport").
 8. **Tags: Generer en liste med 2-4 relevante SEO-tags i en streng-array. (f.eks. ["Nyheter", "Teknologi"])**
-9. Respekter stor bokstav uten å bruke store bokstaver overalt.
+9. **Bruk av store bokstaver: Bruk normalt store bokstaver. Første bokstav i titler, overskrifter (h2) og setninger må ha stor bokstav, det samme gjelder alle egennavn.**
 10. Ikke inkluder lenker, omtaler av nettsider eller hyperkoblinger.
 11. Excerpt: En informativ setning som oppsummerer innholdet.
 12. Hvis artikkelen handler om sport og nevner lag, bruk artikler før navnene (f.eks. <strong>El Real Madrid spilte…</strong>, ikke bare *Real Madrid spilte…*).
@@ -193,7 +197,8 @@ Título: "{$titulo}"
 Contenido: "{$contenido}"
 EOT,
         'is' => <<<EOT
-Þú ert faglegur blaðamaður sem sérhæfir sig í að endurskrifa greinar fyrir blogg. Endurskrifaðu eftirfarandi grein og titil svo að þau virki ekki sem afrit, hafi merkingu og minnist ekki á aðra fjölmiðla. Ekki endurtaka titilinn sem H2. Notaðu H2 til að bæta læsileika. Titlar eiga alltaf að byrja á stórum staf. Skilaðu eingöngu JSON-hluti með eftirfarandi nákvæmu ensku lyklum:
+Þú ert faglegur blaðamaður. Endurskrifaðu eftirfarandi grein og titil svo að þau virki ekki sem afrit, hafi merkingu og minnist ekki á aðra fjölmiðla. Ekki endurtaka titilinn sem H2. Notaðu H2 til að bæta læsileika. Skilaðu eingöngu JSON-hluti með eftirfarandi nákvæmu ensku lyklum:
+Notaðu rétta hástafi: Fyrsti stafurinn í setningum og öll sérnöfn (borgir, fólk o.s.frv.) verða að vera hástafir.
 
 {
     "title": "string",
@@ -213,7 +218,7 @@ EOT,
 6. Slug: Búðu til SEO-væna slóð byggða á nýja titilnum.
 7. Categoría: Notaðu nafn eða slug WordPress flokks (t.d. „Tækni“, „Íþróttir“).
 8. **Tags: Búðu til lista með 2-4 viðeigandi SEO flokkum í strengjafylki. (t.d. ["Fréttir", "Tækni"])**
-9. Virða skal hástafi án þess að nota allt í hástöfum.
+9. **Hástafir: Notaðu venjulega hástafi. Fyrsti stafurinn í titlum, fyrirsögnum (h2) og setningum skal vera hástafur, ásamt öllum sérnöfnum.**
 10. Ekki bæta við tenglum eða umtali um aðrar síður.
 11. Excerpt: Ein stutt og upplýsandi setning sem dregur saman efnið.
 12. Ef um íþróttafrétt er að ræða, notaðu greini með nöfnum liða (t.d. <strong>El Real Madrid lék…</strong>, ekki bara *Real Madrid lék…*).
@@ -223,7 +228,8 @@ Título: "{$titulo}"
 Contenido: "{$contenido}"
 EOT,
         'sv' => <<<EOT
-Du är en professionell journalist som är specialiserad på att skriva om artiklar för bloggar. Skriv om följande artikel och dess titel så att den inte verkar kopierad, är logisk och inte nämner andra tidningar. Upprepa inte titeln som en H2. Använd H2-rubriker för bättre läsbarhet. Titlar ska alltid börja med stor bokstav. Returnera endast ett JSON-objekt med följande exakta engelska nycklar:
+Du är en professionell journalist. Skriv om följande artikel och dess titel så att den inte verkar kopierad, är logisk och inte nämner andra tidningar. Upprepa inte titeln som en H2. Använd H2-rubriker för bättre läsbarhet. Returnera endast ett JSON-objekt med följande exakta engelska nycklar:
+Använd korrekta versaler: Första bokstaven i meningar och alla egennamn (städer, personer etc.) måste skrivas med versal.
 
 {
     "title": "string",
@@ -243,7 +249,7 @@ Du är en professionell journalist som är specialiserad på att skriva om artik
 6. Slug: Skapa en SEO-vänlig slug baserad på den nya titeln.
 7. Categoría: Använd namnet eller sluggen för en befintlig WordPress-kategori (t.ex. "Teknik", "Sport").
 8. **Tags: Generera en lista med 2-4 relevanta SEO-taggar i en strängarray. (t.ex. ["Nyheter", "Teknik"])**
-9. Respektera stora bokstäver utan att helt skriva i versaler.
+9. **Versaler: Använd normala versaler. Första bokstaven i titlar, rubriker (h2) och meningar måste vara versal, liksom alla egennamn.**
 10. Inkludera inte länkar eller omnämnanden av andra webbplatser.
 11. Excerpt: En kort och informativ mening som sammanfattar innehållet.
 12. Om det är en sportartikel, behåll bestämd artikel före lagnamn (t.ex. <strong>El Real Madrid spelade…</strong>, inte bara *Real Madrid spelade…*).
