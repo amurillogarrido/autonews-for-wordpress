@@ -106,6 +106,12 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
 
     $published_count = 0;
 
+    // --- ¡NUEVA MEJORA! OBTENER LISTA DE CATEGORÍAS ---
+    // Obtenemos todos los nombres de las categorías de WP una sola vez
+    $all_categories = get_categories( array( 'hide_empty' => false, 'fields' => 'names' ) );
+    $category_list_string = implode(', ', $all_categories); // Ej: "Casa Real, Corazón, Política"
+    // --- FIN MEJORA ---
+
     foreach ( $rss_items as $item ) {
         if ( $published_count >= $num_items ) {
             break;
@@ -145,7 +151,11 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
             dsrw_write_log( "[AutoNews] " . __( 'ARTÍCULO DESCARTADO: Contenido insuficiente (<180 palabras) - ', 'autonews-rss-rewriter' ) . $enlace );
             continue;
         }
-        $reescrito = dsrw_rewrite_article( $titulo_original, $contenido, $api_key, $api_base );
+        
+        // --- ¡NUEVA MEJORA! (Pasar la lista de categorías) ---
+        $reescrito = dsrw_rewrite_article( $titulo_original, $contenido, $api_key, $api_base, $category_list_string );
+        // --- FIN MEJORA ---
+
         if ( ! $reescrito ) {
             continue;
         }
@@ -175,30 +185,42 @@ if ( $feed_category_setting === 'none' ) {
 
 } elseif ( $feed_category_setting === '' ) {
     if ( ! empty( $categoria_nombre ) ) {
-        $matched_id = dsrw_find_best_category_match( $categoria_nombre );
-        if ( $matched_id ) {
-            $categoria_final = $matched_id;
+        // --- ¡LÓGICA MEJORADA! ---
+        // Ahora que la IA nos da un nombre exacto de la lista, la coincidencia debería ser 100%
+        // Usamos 'get_term_by' para una comprobación exacta en lugar de 'similar_text'
+        $term = get_term_by('name', $categoria_nombre, 'category');
+        
+        if ( $term ) {
+            // ¡Éxito! La IA nos dio un nombre que existe.
+            $categoria_final = $term->term_id;
         } else {
-            // NUEVO: Solo crear la categoría si el admin lo permite
-            $allow_category_creation = get_option('dsrw_allow_category_creation', 0);
-            if ( $allow_category_creation ) {
-                $term_id = wp_create_category( $categoria_nombre );
-                if ( ! is_wp_error( $term_id ) ) {
-                    $categoria_final = $term_id;
-                    dsrw_write_log('[AutoNews RSS Rewriter] Categoría creada automáticamente: ' . $categoria_nombre);
+            // La IA falló o sugirió una categoría que no estaba en la lista (pese a la instrucción)
+            // Volvemos a la lógica de "buscar mejor coincidencia" como plan B.
+            $matched_id = dsrw_find_best_category_match( $categoria_nombre );
+            if ( $matched_id ) {
+                $categoria_final = $matched_id;
+            } else {
+                // Si sigue sin coincidir, comprobamos si podemos crearla
+                $allow_category_creation = get_option('dsrw_allow_category_creation', 0);
+                if ( $allow_category_creation ) {
+                    $term_id = wp_create_category( $categoria_nombre );
+                    if ( ! is_wp_error( $term_id ) ) {
+                        $categoria_final = $term_id;
+                        dsrw_write_log('[AutoNews RSS Rewriter] Categoría creada automáticamente: ' . $categoria_nombre);
+                    } else {
+                        $default_category = get_option( 'default_category' );
+                        $categoria_final = $default_category ? (int) $default_category : 1;
+                        dsrw_write_log('[AutoNews RSS Rewriter] Error al crear categoría: ' . $categoria_nombre . ' - ' . $term_id->get_error_message());
+                    }
                 } else {
                     $default_category = get_option( 'default_category' );
                     $categoria_final = $default_category ? (int) $default_category : 1;
-                    dsrw_write_log('[AutoNews RSS Rewriter] Error al crear categoría: ' . $categoria_nombre . ' - ' . $term_id->get_error_message());
+                    dsrw_write_log('[AutoNews RSS Rewriter] No se encontró categoría (' . $categoria_nombre . ') y no está permitido crearla. Usando la por defecto.');
                 }
-            } else {
-                $default_category = get_option( 'default_category' );
-                $categoria_final = $default_category ? (int) $default_category : 1;
-                dsrw_write_log('[AutoNews RSS Rewriter] No se encontró categoría y no está permitido crearla. Usando la por defecto.');
             }
         }
     } else {
-        // Si no hay sugerencia, también usar la cat. por defecto
+        // Si la IA no devolvió ninguna categoría, usar la por defecto
         $default_category = get_option( 'default_category' );
         $categoria_final = $default_category ? (int) $default_category : 1;
     }
@@ -395,8 +417,11 @@ function dsrw_clean_article_content( $html ) {
     // Eliminar todas las etiquetas <img>
     $html = preg_replace('/<img[^>]+\>/i', '', $html);
     
-    // Eliminar enlaces <a> conservando el texto interno
-    $html = preg_replace('/<a href="(http|https):\/\/[^"]+"[^>]*>(.*?)<\/a>/i', '$2', $html);
+    // --- ¡CORRECCIÓN! ---
+    // Reemplaza la antigua regla por una que elimina TODOS los <a> 
+    // sin importar comillas o tipo de href, pero conserva el texto.
+    $html = preg_replace( '/<a\s+[^>]*href\s*=\s*["\'].*?["\'][^>]*>(.*?)<\/a>/is', '$1', $html );
+    // --- FIN CORRECCIÓN ---
 
     // --- ¡NUEVA MEJORA MULTI-IDIOMA! ---
     // Lista de palabras basura a eliminar (expresiones regulares separadas por | )
@@ -422,6 +447,13 @@ function dsrw_clean_article_content( $html ) {
     
     // Elimina "junk" residual de los enlaces
     $html = preg_replace($regex, '', $html);
+
+    // --- ¡NUEVA CORRECCIÓN! ---
+    // Eliminar párrafos o líneas que contengan avisos de copyright
+    // El modificador 'i' es para case-insensitive (ignora mayús/minús)
+    // El modificador 's' es para que '.' incluya saltos de línea (por si el <p> tiene saltos)
+    $html = preg_replace('/<p[^>]*>.*?(©|Copyright|Prohibida la reproducción|Todos los derechos reservados).*?<\/p>/is', '', $html);
+    // --- FIN CORRECCIÓN ---
     
     // Eliminar atributos style y on* por seguridad
     $html = preg_replace('/\s*(style|on[a-z]+)\s*=\s*["\'][^"\']*["\']/i', '', $html);
@@ -562,11 +594,15 @@ function dsrw_is_duplicate( $hash ) {
  * @param string $contenido Contenido original.
  * @param string $api_key Clave de API.
  * @param string $api_base Base URL de la API.
+ * @param string $category_list_string Lista de categorías de WP (nueva)
  * @return mixed Array decodificado con el contenido reescrito, o false en caso de error.
  */
-function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base ) {
+function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $category_list_string ) {
     $language = get_option( 'dsrw_selected_language', 'es' );
-    $prompt = dsrw_get_prompt_template( $language, $titulo, $contenido ); // Esta función ya maneja el prompt personalizado
+    
+    // --- ¡NUEVA MEJORA! (Pasar la lista de categorías) ---
+    $prompt = dsrw_get_prompt_template( $language, $titulo, $contenido, $category_list_string ); 
+    // --- FIN MEJORA ---
 
     // --- NUEVA MEJORA 2 ---
     // Leer los ajustes de modelo y temperatura de la base de datos

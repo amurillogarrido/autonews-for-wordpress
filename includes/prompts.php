@@ -16,9 +16,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @param string $language Código de idioma (ej. 'es', 'en', 'de', etc.).
  * @param string $titulo   Título original del artículo.
  * @param string $contenido Contenido original del artículo.
+ * @param string $category_list_string Una cadena con la lista de categorías de WP (ej. "Corazón, Política")
  * @return string Prompt a enviar a la API de OpenAI.
  */
-function dsrw_get_prompt_template( $language, $titulo, $contenido ) {
+function dsrw_get_prompt_template( $language, $titulo, $contenido, $category_list_string ) {
 
     // --- NUEVA MEJORA 2 ---
     // Comprobar si existe un prompt personalizado en los ajustes
@@ -27,10 +28,10 @@ function dsrw_get_prompt_template( $language, $titulo, $contenido ) {
 
     if ( ! empty($custom_prompt) ) {
         // Si hay un prompt personalizado, usarlo.
-        // Reemplazamos las variables {$titulo} y {$contenido}
+        // Reemplazamos las variables {$titulo}, {$contenido} y {$categorias}
         $prompt = str_replace(
-            array('{$titulo}', '{$contenido}'),
-            array($titulo, $contenido), // Reemplaza los placeholders por el contenido real
+            array('{$titulo}', '{$contenido}', '{$categorias}'),
+            array($titulo, $contenido, $category_list_string), // Reemplaza los placeholders
             $custom_prompt
         );
         return $prompt;
@@ -44,12 +45,13 @@ function dsrw_get_prompt_template( $language, $titulo, $contenido ) {
 Eres un periodista profesional especializado en reescribir artículos para blogs. Reescribe el siguiente artículo y su título para que no parezca copiado, tenga sentido y no mencione nada de otros diarios, no repitas el título como h2, y crea h2 para facilitar la lectura. Devuélvelo exclusivamente en un objeto JSON con las siguientes claves exactas en inglés:
 Usa las mayúsculas correctamente: la primera letra de las frases y los nombres propios (ciudades, personas, etc.) siempre deben ir en mayúsculas.
 
+Lista de categorías disponibles: [{$category_list_string}]
 
 {
     "title": "string",
     "content": "string (usar HTML como <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Usar el nombre o slug de la categoría,
+    "category": "string", // DEBE ser una de la lista de categorías disponibles
     "excerpt": "string (una frase que resuma el contenido)",
     "tags": "array[string] // 2-4 etiquetas SEO relevantes"
 }
@@ -61,7 +63,7 @@ Usa las mayúsculas correctamente: la primera letra de las frases y los nombres 
 4. Contenido: Reescribe el contenido original, con etiquetas HTML (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANTE:** Para negritas, usa solo etiquetas `<strong>`. **No uses Markdown (asteriscos)**. Asegúrate de que todas las etiquetas HTML estén correctamente abiertas y cerradas.
 6. Slug: Genera un slug SEO amigable basado en el título reescrito.
-7. Categoría: Usa el nombre o slug de una categoría existente en WordPress (ejemplo: "Tecnología", "Deportes").
+7. **Categoría: Elige el nombre de la categoría más relevante de la 'Lista de categorías disponibles' (proporcionada arriba). El nombre debe ser una coincidencia exacta.**
 8. **Tags: Genera una lista de 2 a 4 etiquetas (tags) SEO relevantes en un array de strings. (ej. ["Noticias", "Tecnología"])**
 9. **Capitalización: Usa mayúsculas de forma normal. La primera letra de los títulos, encabezados (h2) y frases debe ir en mayúscula, así como todos los nombres propios.**
 10. No incluyas menciones a otras páginas web ni enlaces ni hipervínculos.
@@ -76,11 +78,13 @@ EOT,
 Du bist ein professioneller Journalist. Schreibe den folgenden Artikel und seinen Titel so um, dass er nicht kopiert erscheint, Sinn ergibt und keine anderen Zeitungen erwähnt werden. Wiederhole den Titel nicht als H2. Verwende H2-Überschriften zur besseren Lesbarkeit. Gib ausschließlich ein JSON-Objekt mit den folgenden exakten englischen Schlüsseln zurück:
 Achte auf korrekte Groß- und Kleinschreibung: Der erste Buchstabe von Sätzen und Eigennamen (Städte, Personen usw.) muss immer großgeschrieben werden.
 
+Verfügbare Kategorien: [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (verwende HTML wie <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Verwende den Namen oder Slug der Kategorie,
+    "category": "string", // MUSS eine aus der Liste der verfügbaren Kategorien sein
     "excerpt": "string (ein Satz, der den Inhalt zusammenfasst)",
     "tags": "array[string] // 2-4 relevante SEO-Tags"
 }
@@ -92,7 +96,7 @@ Achte auf korrekte Groß- und Kleinschreibung: Der erste Buchstabe von Sätzen u
 4. Contenido: Schreibe den Inhalt neu, verwende HTML-Tags (<h2>, <strong>, <p>, etc.).
 5. **WICHTIG:** Für fettgedruckten Text verwende nur `<strong>`-Tags. **Benutze kein Markdown (Sternchen)**. Stelle sicher, dass alle HTML-Tags korrekt geöffnet und geschlossen sind.
 6. Slug: Erstelle einen SEO-freundlichen Slug basierend auf dem neuen Titel.
-7. Categoría: Verwende den Namen oder Slug einer existierenden WordPress-Kategorie (z. B. "Technologie", "Sport").
+7. **Categoría: Wähle den relevantesten Kategorienamen aus der oben angegebenen 'Verfügbare Kategorien'-Liste aus. Der Name muss exakt übereinstimmen.**
 8. **Tags: Erstelle eine Liste von 2-4 relevanten SEO-Tags in einem String-Array. (z.B. ["Nachrichten", "Technologie"])**
 9. **Großschreibung: Verwende normale Großschreibung. Der erste Buchstabe von Titeln, Überschriften (h2) und Sätzen sowie alle Eigennamen müssen großgeschrieben werden.**
 10. Füge keine Erwähnungen von Webseiten oder Links ein.
@@ -107,11 +111,13 @@ EOT,
 You are a professional journalist. Rewrite the following article and its title so that it does not look copied, makes sense, and does not mention any other newspapers. Do not repeat the title as an H2. Use H2s to improve readability. Return only a JSON object with the following exact English keys:
 Use proper capitalization: The first letter of sentences and all proper nouns (cities, people, etc.) must be capitalized.
 
+Available categories list: [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (use HTML like <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Use the name or slug of the category,
+    "category": "string", // MUST be one from the available categories list
     "excerpt": "string (a sentence that summarizes the content)",
     "tags": "array[string] // 2-4 relevant SEO tags"
 }
@@ -123,7 +129,7 @@ Use proper capitalization: The first letter of sentences and all proper nouns (c
 4. Contenido: Rewrite the original content using HTML tags (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANT:** For bold text, use `<strong>` tags only. **Do not use Markdown (asterisks)**. Ensure all HTML tags are correctly opened and closed.
 6. Slug: Generate an SEO-friendly slug based on the rewritten title.
-7. Categoría: Use the name or slug of an existing WordPress category (e.g., "Technology", "Sports").
+7. **Categoría: Choose the most relevant category name from the 'Available categories list' provided above. The name must be an exact match.**
 8. **Tags: Generate a list of 2-4 relevant SEO tags in an array of strings. (e.g., ["News", "Technology"])**
 9. **Capitalization: Use normal sentence case. The first letter of titles, headings (h2), and sentences must be capitalized, as well as all proper nouns.**
 10. Do not include mentions of websites, links, or hyperlinks.
@@ -138,11 +144,13 @@ EOT,
 Vous êtes un journaliste professionnel. Réécrivez l’article suivant et son titre de manière à ce qu’ils ne paraissent pas copiés, aient du sens et ne mentionnent aucun autre journal. Ne répétez pas le titre en tant que H2. Utilisez des H2 pour améliorer la lisibilité. Retournez uniquement un objet JSON avec les clés anglaises exactes suivantes :
 Utilisez les majuscules correctement : la première lettre des phrases et tous les noms propres (villes, personnes, etc.) doivent être en majuscules.
 
+Liste des catégories disponibles : [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (utilisez du HTML comme <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Utilisez le nom ou le slug de la catégorie,
+    "category": "string", // DOIT être une de la liste des catégories disponibles
     "excerpt": "string (une phrase résumant le contenu)",
     "tags": "array[string] // 2-4 étiquettes SEO pertinentes"
 }
@@ -154,7 +162,7 @@ Utilisez les majuscules correctement : la première lettre des phrases et tous l
 4. Contenido : Réécrivez le contenu avec des balises HTML (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANT :** Pour le texte en gras, utilisez uniquement les balises `<strong>`. **N'utilisez pas de Markdown (astérisques)**. Assurez-vous que toutes les balises HTML sont correctement ouvertes et fermées.
 6. Slug : Générez un slug SEO basé sur le nouveau titre.
-7. Categoría : Utilisez le nom ou le slug d’une catégorie WordPress existante (ex. : « Technologie », « Sports »).
+7. **Categoría : Choisissez le nom de catégorie le plus pertinent dans la 'Liste des catégories disponibles' ci-dessus. Le nom doit correspondre exactement.**
 8. **Tags : Générez une liste de 2 à 4 étiquettes (tags) SEO pertinentes dans un tableau de chaînes. (ex. : ["Actualités", "Technologie"])**
 9. **Majuscules : Utilisez les majuscules normalement. La première lettre des titres, des en-têtes (h2) et des phrases doit être en majuscule, ainsi que tous les noms propres.**
 10. N’incluez pas de liens, ni de mentions de sites web.
@@ -169,11 +177,13 @@ EOT,
 Du er en profesjonell journalist. Skriv om følgende artikkel og tittel slik at den ikke virker kopiert, gir mening og ikke nevner andre aviser. Ikke gjenta tittelen som H2. Bruk H2-overskrifter for bedre lesbarhet. Returner kun et JSON-objekt med følgende eksakte engelske nøkler:
 Bruk riktig stor bokstav: Første bokstav i setninger og alle egennavn (byer, personer osv.) må skrives med stor bokstav.
 
+Tilgjengelige kategorier: [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (bruk HTML som <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Bruk navnet eller sluggen til kategorien,
+    "category": "string", // MÅ være en fra listen over tilgjengelige kategorier
     "excerpt": "string (en setning som oppsummerer innholdet)",
     "tags": "array[string] // 2-4 relevante SEO-tags"
 }
@@ -185,7 +195,7 @@ Bruk riktig stor bokstav: Første bokstav i setninger og alle egennavn (byer, pe
 4. Contenido: Skriv om innholdet med HTML-tagger (<h2>, <strong>, <p>, etc.).
 5. **VIKTIG:** For fet tekst, bruk kun `<strong>`-tagger. **Ikke bruk Markdown (stjerner)**. Sørg for at alle HTML-tagger er riktig åpnet og lukket.
 6. Slug: Lag en SEO-vennlig slug basert på den nye tittelen.
-7. Categoría: Bruk navnet eller sluggen til en eksisterende WordPress-kategori (f.eks. "Teknologi", "Sport").
+7. **Categoría: Velg det mest relevante kategorinavnet fra 'Tilgjengelige kategorier'-listen ovenfor. Navnet må være en nøyaktig match.**
 8. **Tags: Generer en liste med 2-4 relevante SEO-tags i en streng-array. (f.eks. ["Nyheter", "Teknologi"])**
 9. **Bruk av store bokstaver: Bruk normalt store bokstaver. Første bokstav i titler, overskrifter (h2) og setninger må ha stor bokstav, det samme gjelder alle egennavn.**
 10. Ikke inkluder lenker, omtaler av nettsider eller hyperkoblinger.
@@ -200,11 +210,13 @@ EOT,
 Þú ert faglegur blaðamaður. Endurskrifaðu eftirfarandi grein og titil svo að þau virki ekki sem afrit, hafi merkingu og minnist ekki á aðra fjölmiðla. Ekki endurtaka titilinn sem H2. Notaðu H2 til að bæta læsileika. Skilaðu eingöngu JSON-hluti með eftirfarandi nákvæmu ensku lyklum:
 Notaðu rétta hástafi: Fyrsti stafurinn í setningum og öll sérnöfn (borgir, fólk o.s.frv.) verða að vera hástafir.
 
+Tiltækir flokkar: [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (notaðu HTML eins og <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Notaðu nafn eða slug flokksins,
+    "category": "string", // VERÐUR að vera einn af listanum yfir tiltæka flokka
     "excerpt": "string (setning sem dregur saman innihaldið)",
     "tags": "array[string] // 2-4 viðeigandi SEO flokkar"
 }
@@ -216,7 +228,7 @@ Notaðu rétta hástafi: Fyrsti stafurinn í setningum og öll sérnöfn (borgir
 4. Contenido: Endurskrifaðu innihaldið með HTML-tögum (<h2>, <strong>, <p>, etc.).
 5. **MIKILVÆGT:** Fyrir feitletran texta, notaðu aðeins `<strong>` tög. **Ekki nota Markdown (stjörnur)**. Gakktu úr skugga um að öll HTML tög séu rétt opnuð og lokuð.
 6. Slug: Búðu til SEO-væna slóð byggða á nýja titilnum.
-7. Categoría: Notaðu nafn eða slug WordPress flokks (t.d. „Tækni“, „Íþróttir“).
+7. **Categoría: Veldu viðeigandi flokksheiti af listanum 'Tiltækir flokkar' hér að ofan. Nafnið verður að vera nákvæmlega það sama.**
 8. **Tags: Búðu til lista með 2-4 viðeigandi SEO flokkum í strengjafylki. (t.d. ["Fréttir", "Tækni"])**
 9. **Hástafir: Notaðu venjulega hástafi. Fyrsti stafurinn í titlum, fyrirsögnum (h2) og setningum skal vera hástafur, ásamt öllum sérnöfnum.**
 10. Ekki bæta við tenglum eða umtali um aðrar síður.
@@ -231,11 +243,13 @@ EOT,
 Du är en professionell journalist. Skriv om följande artikel och dess titel så att den inte verkar kopierad, är logisk och inte nämner andra tidningar. Upprepa inte titeln som en H2. Använd H2-rubriker för bättre läsbarhet. Returnera endast ett JSON-objekt med följande exakta engelska nycklar:
 Använd korrekta versaler: Första bokstaven i meningar och alla egennamn (städer, personer etc.) måste skrivas med versal.
 
+Tillgängliga kategorier: [{$category_list_string}]
+
 {
     "title": "string",
     "content": "string (använd HTML som <h2>, <strong>, <p>, etc.)",
     "slug": "string",
-    "category": "string", // Använd namnet eller sluggen för kategorin,
+    "category": "string", // MÅSTE vara en från listan över tillgängliga kategorier
     "excerpt": "string (en mening som sammanfattar innehållet)",
     "tags": "array[string] // 2-4 relevanta SEO-taggar"
 }
@@ -247,7 +261,7 @@ Använd korrekta versaler: Första bokstaven i meningar och alla egennamn (städ
 4. Contenido: Skriv om innehållet med HTML-taggar (<h2>, <strong>, <p>, etc.).
 5. **VIKTIGT:** För fet text, använd endast `<strong>`-taggar. **Använd inte Markdown (asterisker)**. Se till att alla HTML-taggar är korrekt öppnade och stängda.
 6. Slug: Skapa en SEO-vänlig slug baserad på den nya titeln.
-7. Categoría: Använd namnet eller sluggen för en befintlig WordPress-kategori (t.ex. "Teknik", "Sport").
+7. **Categoría: Välj det mest relevanta kategorinamnet från listan 'Tillgängliga kategorier' ovan. Namnet måste vara en exakt matchning.**
 8. **Tags: Generera en lista med 2-4 relevanta SEO-taggar i en strängarray. (t.ex. ["Nyheter", "Teknik"])**
 9. **Versaler: Använd normala versaler. Första bokstaven i titlar, rubriker (h2) och meningar måste vara versal, liksom alla egennamn.**
 10. Inkludera inte länkar eller omnämnanden av andra webbplatser.
@@ -260,10 +274,14 @@ Contenido: "{$contenido}"
 EOT,
     );
 
-    // Si existe una plantilla para el idioma solicitado, se devuelve.
-    // De lo contrario, se usa la plantilla en español ('es') por defecto.
-    // Las variables ya están interpoladas por la sintaxis HEREDOC.
-    return isset( $prompt_templates[ $language ] )
+    // Selecciona la plantilla
+    $chosen_template = isset( $prompt_templates[ $language ] )
         ? $prompt_templates[ $language ]
         : $prompt_templates['es'];
+    
+    // Rellena el placeholder de las categorías
+    $final_prompt = str_replace('{$categorias}', $category_list_string, $chosen_template);
+    
+    // Devuelve el prompt final (las variables $titulo y $contenido se interpolan automáticamente por el HEREDOC)
+    return $final_prompt;
 }
