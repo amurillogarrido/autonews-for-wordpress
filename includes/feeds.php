@@ -135,8 +135,28 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
         }
         
 
-        // Obtener y limpiar el contenido
+        // Obtener contenido
         $contenido = dsrw_get_full_content( $enlace );
+
+        // --- ¡NUEVA MEJORA! (Filtro Anti-Galerías) ---
+        // Contamos las imágenes ANTES de limpiarlas.
+        // Usamos un umbral de 4 imágenes para considerarlo galería.
+        $image_count = 0;
+        if ( !empty($contenido) ) {
+            $image_count = substr_count( strtolower($contenido), '<img' );
+        }
+
+        if ( $image_count > 4 ) {
+            dsrw_write_log( "[AutoNews] " . __( 'ARTÍCULO DESCARTADO: Detectado como galería (', 'autonews-rss-rewriter' ) . $image_count . __( ' imágenes) - ', 'autonews-rss-rewriter' ) . $enlace );
+            if ( is_array($logs) ) {
+                $logs[] = "🎨 Ignorado (Galería, " . $image_count . " imágenes): \"$titulo_original\"";
+            }
+            continue; // Saltar este artículo
+        }
+        // --- FIN MEJORA ---
+
+
+        // Limpiar el contenido (ahora sí, después de contar)
         $contenido = dsrw_clean_article_content( $contenido ); // <-- ¡AQUÍ SE LIMPIA!
         if ( empty( $contenido ) ) {
             $contenido = wp_strip_all_tags( $item->get_description() );
@@ -420,6 +440,8 @@ function dsrw_clean_article_content( $html ) {
     // --- ¡CORRECCIÓN! ---
     // Reemplaza la antigua regla por una que elimina TODOS los <a> 
     // sin importar comillas o tipo de href, pero conserva el texto.
+    // 's' (DOTALL) = . incluye saltos de línea
+    // 'i' (CASE-INSENSITIVE) = ignora mayús/minús
     $html = preg_replace( '/<a\s+[^>]*href\s*=\s*["\'].*?["\'][^>]*>(.*?)<\/a>/is', '$1', $html );
     // --- FIN CORRECCIÓN ---
 
@@ -621,10 +643,23 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
             array( 'role' => 'user', 'content' => $prompt )
         ),
         'temperature'       => $temperature, // <-- ¡AHORA ES DINÁMICO!
-        'max_tokens'        => 1500,
         'frequency_penalty' => 0.5, // Reduce repeticiones
         'presence_penalty'  => 0.3, // Mejor coherencia temática
     );
+
+// --- ¡NUEVA CORRECCIÓN! (Parámetro de Tokens) ---
+    // Comprobar qué modelo se está usando para enviar el parámetro de tokens correcto
+    $new_models = array('gpt-5-nano'); // Según tu log, solo gpt-5-nano usa max_completion_tokens
+    if ( in_array( $model, $new_models ) ) {
+        // Los modelos 'nano' de gen 5 usan 'max_completion_tokens'
+        $post_data['max_completion_tokens'] = 1500;
+    } else {
+        // Los modelos anteriores (como gpt-4o-mini y gpt-4.1-nano) usan 'max_tokens'
+        $post_data['max_tokens'] = 1500;
+    }
+    // --- FIN CORRECCIÓN ---
+
+
     $headers = array(
         'Content-Type'  => 'application/json',
         'Authorization' => 'Bearer ' . $api_key
