@@ -642,20 +642,25 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
         'messages'          => array(
             array( 'role' => 'user', 'content' => $prompt )
         ),
-        'temperature'       => $temperature, // <-- ¡AHORA ES DINÁMICO!
-        'frequency_penalty' => 0.5, // Reduce repeticiones
-        'presence_penalty'  => 0.3, // Mejor coherencia temática
+        // 'temperature'    => $temperature, // Movido a la lógica condicional
+        // 'frequency_penalty' => 0.5, // Movido a la lógica condicional
+        // 'presence_penalty'  => 0.3, // Movido a la lógica condicional
     );
 
-// --- ¡NUEVA CORRECCIÓN! (Parámetro de Tokens) ---
-    // Comprobar qué modelo se está usando para enviar el parámetro de tokens correcto
-    $new_models = array('gpt-5-nano'); // Según tu log, solo gpt-5-nano usa max_completion_tokens
-    if ( in_array( $model, $new_models ) ) {
-        // Los modelos 'nano' de gen 5 usan 'max_completion_tokens'
-        $post_data['max_completion_tokens'] = 1500;
-    } else {
-        // Los modelos anteriores (como gpt-4o-mini y gpt-4.1-nano) usan 'max_tokens'
+    // --- ¡NUEVA CORRECCIÓN! (Parámetros condicionales) ---
+    // Lista de modelos "básicos" que no soportan parámetros avanzados
+    $basic_models = array('gpt-5-nano'); 
+    
+    if ( ! in_array( $model, $basic_models ) ) {
+        // Si es un modelo "avanzado" (4.1-nano, 4o-mini), añadimos los parámetros
+        $post_data['temperature'] = $temperature;
+        $post_data['frequency_penalty'] = 0.5;
+        $post_data['presence_penalty'] = 0.3;
         $post_data['max_tokens'] = 1500;
+    } else {
+        // Si es un modelo "básico" (gpt-5-nano)
+        $post_data['max_completion_tokens'] = 1500;
+        // No añadimos 'temperature', 'frequency_penalty', o 'presence_penalty' para que use los defaults
     }
     // --- FIN CORRECCIÓN ---
 
@@ -665,7 +670,7 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
         'Authorization' => 'Bearer ' . $api_key
     );
     dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Enviando solicitud a la API: ', 'autonews-rss-rewriter' ) . $api_base . '/v1/chat/completions' );
-    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Usando Modelo: ', 'autonews-rss-rewriter' ) . $model . ', Temp: ' . $temperature );
+    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Usando Modelo: ', 'autonews-rss-rewriter' ) . $model . ', Temp: ' . (isset($post_data['temperature']) ? $post_data['temperature'] : 'default') );
     dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Datos enviados (prompt recortado): ', 'autonews-rss-rewriter' ) . substr(json_encode( $post_data ), 0, 500) . '...' );
     
     $response = wp_remote_post(
