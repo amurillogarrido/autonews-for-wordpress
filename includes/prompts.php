@@ -63,7 +63,7 @@ Lista de categorías disponibles: [{$category_list_string}]
 4. Contenido: Reescribe el contenido original, con etiquetas HTML (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANTE:** Para negritas, usa solo etiquetas `<strong>`. **No uses Markdown (asteriscos)**. Asegúrate de que todas las etiquetas HTML estén correctamente abiertas y cerradas.
 6. Slug: Genera un slug SEO amigable basado en el título reescrito.
-7. **Categoría: Elige el nombre de la categoría más relevante de la 'Lista de categorías disponibles' (proporcionada arriba). El nombre debe ser una coincidencia exacta.**
+7. **Categoría: Elige el nombre de la categoría MÁS ESPECÍFICA de la 'Lista de categorías disponibles'. El nombre debe ser una coincidencia exacta. (Ejemplo: Para un artículo sobre el 'estilo de la Reina Letizia', la categoría 'Casa Real' es más específica y correcta que 'Estilo de vida').**
 8. **Tags: Genera una lista de 2 a 4 etiquetas (tags) SEO relevantes en un array de strings. (ej. ["Noticias", "Tecnología"])**
 9. **Capitalización: Usa mayúsculas de forma normal. La primera letra de los títulos, encabezados (h2) y frases debe ir en mayúscula, así como todos los nombres propios.**
 10. No incluyas menciones a otras páginas web ni enlaces ni hipervínculos.
@@ -96,7 +96,7 @@ Verfügbare Kategorien: [{$category_list_string}]
 4. Contenido: Schreibe den Inhalt neu, verwende HTML-Tags (<h2>, <strong>, <p>, etc.).
 5. **WICHTIG:** Für fettgedruckten Text verwende nur `<strong>`-Tags. **Benutze kein Markdown (Sternchen)**. Stelle sicher, dass alle HTML-Tags korrekt geöffnet und geschlossen sind.
 6. Slug: Erstelle einen SEO-freundlichen Slug basierend auf dem neuen Titel.
-7. **Categoría: Wähle den relevantesten Kategorienamen aus der oben angegebenen 'Verfügbare Kategorien'-Liste aus. Der Name muss exakt übereinstimmen.**
+7. **Categoría: Wähle den SPEZIFISCHSTEN Kategorienamen aus der 'Verfügbare Kategorien'-Liste. (Bsp: Für einen Artikel über 'Königin Letizias Stil' ist 'Casa Real' spezifischer und korrekter als 'Estilo de vida').**
 8. **Tags: Erstelle eine Liste von 2-4 relevanten SEO-Tags in einem String-Array. (z.B. ["Nachrichten", "Technologie"])**
 9. **Großschreibung: Verwende normale Großschreibung. Der erste Buchstabe von Titeln, Überschriften (h2) und Sätzen sowie alle Eigennamen müssen großgeschrieben werden.**
 10. Füge keine Erwähnungen von Webseiten oder Links ein.
@@ -129,7 +129,7 @@ Available categories list: [{$category_list_string}]
 4. Contenido: Rewrite the original content using HTML tags (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANT:** For bold text, use `<strong>` tags only. **Do not use Markdown (asterisks)**. Ensure all HTML tags are correctly opened and closed.
 6. Slug: Generate an SEO-friendly slug based on the rewritten title.
-7. **Categoría: Choose the most relevant category name from the 'Available categories list' provided above. The name must be an exact match.**
+7. **Categoría: Choose the MOST SPECIFIC category name from the 'Available categories list'. (e.g., For an article about 'Queen Letizia's style', 'Casa Real' is more specific and correct than 'Estilo de vida').**
 8. **Tags: Generate a list of 2-4 relevant SEO tags in an array of strings. (e.g., ["News", "Technology"])**
 9. **Capitalization: Use normal sentence case. The first letter of titles, headings (h2), and sentences must be capitalized, as well as all proper nouns.**
 10. Do not include mentions of websites, links, or hyperlinks.
@@ -162,9 +162,9 @@ Liste des catégories disponibles : [{$category_list_string}]
 4. Contenido : Réécrivez le contenu avec des balises HTML (<h2>, <strong>, <p>, etc.).
 5. **IMPORTANT :** Pour le texte en gras, utilisez uniquement les balises `<strong>`. **N'utilisez pas de Markdown (astérisques)**. Assurez-vous que toutes les balises HTML sont correctement ouvertes et fermées.
 6. Slug : Générez un slug SEO basé sur le nouveau titre.
-7. **Categoría : Choisissez le nom de catégorie le plus pertinent dans la 'Liste des catégories disponibles' ci-dessus. Le nom doit correspondre exactement.**
+7. **Categoría : Choisissez le nom de catégorie LE PLUS SPÉCIFIQUE dans la 'Liste des catégories disponibles'. (Ex: Pour 'style de la Reine Letizia', 'Casa Real' est plus spécifique et correct que 'Estilo de vida').**
 8. **Tags : Générez une liste de 2 à 4 étiquettes (tags) SEO pertinentes dans un tableau de chaînes. (ex. : ["Actualités", "Technologie"])**
-9. **Majuscules : Utilisez les majuscules normalement. La première lettre des titres, des en-têtes (h2) et des phrases doit être en majuscule, ainsi que tous les noms propres.**
+9. **Majuscules : Utilisez les majuscules normally. La première lettre des titres, des en-têtes (h2) et des phrases doit être en majuscule, ainsi que tous les noms propres.**
 10. N’incluez pas de liens, ni de mentions de sites web.
 11. Excerpt : Une phrase informative résumant le contenu.
 12. Si l’article est sportif, gardez les articles devant les noms d’équipes (ex. : <strong>Le Real Madrid a joué…</strong>, pas juste *Real Madrid a joué…*).
@@ -195,7 +195,7 @@ Tilgjengelige kategorier: [{$category_list_string}]
 4. Contenido: Skriv om innholdet med HTML-tagger (<h2>, <strong>, <p>, etc.).
 5. **VIKTIG:** For fet tekst, bruk kun `<strong>`-tagger. **Ikke bruk Markdown (stjerner)**. Sørg for at alle HTML-tagger er riktig åpnet og lukket.
 6. Slug: Lag en SEO-vennlig slug basert på den nye tittelen.
-7. **Categoría: Velg det mest relevante kategorinavnet fra 'Tilgjengelige kategorier'-listen ovenfor. Navnet må være en nøyaktig match.**
+7. **Categoría: Velg det MEST SPESIFIKKE kategorinavnet fra 'Tilgjengelige kategorier'-listen. (Eks: For 'Dronning Letizias stil' er 'Casa Real' mer spesifikk og korrekt enn 'Estilo de vida').**
 8. **Tags: Generer en liste med 2-4 relevante SEO-tags i en streng-array. (f.eks. ["Nyheter", "Teknologi"])**
 9. **Bruk av store bokstaver: Bruk normalt store bokstaver. Første bokstav i titler, overskrifter (h2) og setninger må ha stor bokstav, det samme gjelder alle egennavn.**
 10. Ikke inkluder lenker, omtaler av nettsider eller hyperkoblinger.
@@ -228,7 +228,7 @@ Tiltækir flokkar: [{$category_list_string}]
 4. Contenido: Endurskrifaðu innihaldið með HTML-tögum (<h2>, <strong>, <p>, etc.).
 5. **MIKILVÆGT:** Fyrir feitletran texta, notaðu aðeins `<strong>` tög. **Ekki nota Markdown (stjörnur)**. Gakktu úr skugga um að öll HTML tög séu rétt opnuð og lokuð.
 6. Slug: Búðu til SEO-væna slóð byggða á nýja titilnum.
-7. **Categoría: Veldu viðeigandi flokksheiti af listanum 'Tiltækir flokkar' hér að ofan. Nafnið verður að vera nákvæmlega það sama.**
+7. **Categoría: Veldu SÉRSTAKASTA flokksheitið af 'Tiltækir flokkar'-listanum. (Dæmi: Fyrir 'stíl Letiziu drottningar' er 'Casa Real' nákvæmara og réttara en 'Estilo de vida').**
 8. **Tags: Búðu til lista með 2-4 viðeigandi SEO flokkum í strengjafylki. (t.d. ["Fréttir", "Tækni"])**
 9. **Hástafir: Notaðu venjulega hástafi. Fyrsti stafurinn í titlum, fyrirsögnum (h2) og setningum skal vera hástafur, ásamt öllum sérnöfnum.**
 10. Ekki bæta við tenglum eða umtali um aðrar síður.
@@ -261,7 +261,7 @@ Tillgängliga kategorier: [{$category_list_string}]
 4. Contenido: Skriv om innehållet med HTML-taggar (<h2>, <strong>, <p>, etc.).
 5. **VIKTIGT:** För fet text, använd endast `<strong>`-taggar. **Använd inte Markdown (asterisker)**. Se till att alla HTML-taggar är korrekt öppnade och stängda.
 6. Slug: Skapa en SEO-vänlig slug baserad på den nya titeln.
-7. **Categoría: Välj det mest relevanta kategorinamnet från listan 'Tillgängliga kategorier' ovan. Namnet måste vara en exakt matchning.**
+7. **Categoría: Välj det MEST SPECIFIKA kategorinamnet från listan 'Tillgängliga kategorier'. (Ex: För 'Drottning Letizias stil' är 'Casa Real' mer specifik och korrekt än 'Estilo de vida').**
 8. **Tags: Generera en lista med 2-4 relevanta SEO-taggar i en strängarray. (t.ex. ["Nyheter", "Teknik"])**
 9. **Versaler: Använd normala versaler. Första bokstaven i titlar, rubriker (h2) och meningar måste vara versal, liksom alla egennamn.**
 10. Inkludera inte länkar eller omnämnanden av andra webbplatser.
@@ -280,7 +280,7 @@ EOT,
         : $prompt_templates['es'];
     
     // Rellena el placeholder de las categorías
-    $final_prompt = str_replace('{$categorias}', $category_list_string, $chosen_template);
+    $final_prompt = str_replace('{$category_list_string}', $category_list_string, $chosen_template);
     
     // Devuelve el prompt final (las variables $titulo y $contenido se interpolan automáticamente por el HEREDOC)
     return $final_prompt;
