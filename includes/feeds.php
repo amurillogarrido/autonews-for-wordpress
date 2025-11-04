@@ -434,8 +434,10 @@ function dsrw_clean_article_content( $html ) {
     if ( empty( $html ) ) {
         return '';
     }
-    // Eliminar todas las etiquetas <img>
-    $html = preg_replace('/<img[^>]+\>/i', '', $html);
+    // Eliminar todas las etiquetas <img> (Esta regla la movemos DESPUÉS de contar las imágenes)
+    // $html = preg_replace('/<img[^>]+\>/i', '', $html); 
+    // ^-- Esta línea está comentada aquí a propósito. La lógica se movió a dsrw_process_single_feed
+
     
     // --- ¡CORRECCIÓN! ---
     // Reemplaza la antigua regla por una que elimina TODOS los <a> 
@@ -479,6 +481,10 @@ function dsrw_clean_article_content( $html ) {
     
     // Eliminar atributos style y on* por seguridad
     $html = preg_replace('/\s*(style|on[a-z]+)\s*=\s*["\'][^"\']*["\']/i', '', $html);
+
+    // AHORA SÍ: Eliminar todas las etiquetas <img> al final
+    $html = preg_replace('/<img[^>]+\>/i', '', $html);
+
     return trim($html);
 }
 
@@ -656,10 +662,10 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
         $post_data['temperature'] = $temperature;
         $post_data['frequency_penalty'] = 0.5;
         $post_data['presence_penalty'] = 0.3;
-        $post_data['max_tokens'] = 1500;
+        $post_data['max_tokens'] = 4096; // Límite aumentado
     } else {
         // Si es un modelo "básico" (gpt-5-nano)
-        $post_data['max_completion_tokens'] = 1500;
+        $post_data['max_completion_tokens'] = 4096; // Límite aumentado
         // No añadimos 'temperature', 'frequency_penalty', o 'presence_penalty' para que use los defaults
     }
     // --- FIN CORRECCIÓN ---
