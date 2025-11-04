@@ -482,7 +482,7 @@ function dsrw_clean_article_content( $html ) {
     // Eliminar atributos style y on* por seguridad
     $html = preg_replace('/\s*(style|on[a-z]+)\s*=\s*["\'][^"\']*["\']/i', '', $html);
 
-    // AHORA SÍ: Eliminar todas las etiquetas <img> al final
+    // AHORA SÍ: Eliminar todas las etiquetas <img> al final (después de contarlas)
     $html = preg_replace('/<img[^>]+\>/i', '', $html);
 
     return trim($html);
@@ -662,10 +662,10 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
         $post_data['temperature'] = $temperature;
         $post_data['frequency_penalty'] = 0.5;
         $post_data['presence_penalty'] = 0.3;
-        $post_data['max_tokens'] = 4096; // Límite aumentado
+        $post_data['max_tokens'] = 4096; // <-- LÍMITE AUMENTADO
     } else {
         // Si es un modelo "básico" (gpt-5-nano)
-        $post_data['max_completion_tokens'] = 4096; // Límite aumentado
+        $post_data['max_completion_tokens'] = 4096; // <-- LÍMITE AUMENTADO
         // No añadimos 'temperature', 'frequency_penalty', o 'presence_penalty' para que use los defaults
     }
     // --- FIN CORRECCIÓN ---
