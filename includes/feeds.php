@@ -662,10 +662,10 @@ function dsrw_rewrite_article( $titulo, $contenido, $api_key, $api_base, $catego
         $post_data['temperature'] = $temperature;
         $post_data['frequency_penalty'] = 0.5;
         $post_data['presence_penalty'] = 0.3;
-        $post_data['max_tokens'] = 4096; // <-- LÍMITE AUMENTADO
+        $post_data['max_tokens'] = 1500; // <-- LÍMITE AUMENTADO
     } else {
         // Si es un modelo "básico" (gpt-5-nano)
-        $post_data['max_completion_tokens'] = 4096; // <-- LÍMITE AUMENTADO
+        $post_data['max_completion_tokens'] = 5000; // <-- LÍMITE AUMENTADO
         // No añadimos 'temperature', 'frequency_penalty', o 'presence_penalty' para que use los defaults
     }
     // --- FIN CORRECCIÓN ---
