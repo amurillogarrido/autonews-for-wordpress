@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AutoNews - AI News Rewriter
  * Description: Reescribe artículos de múltiples feeds RSS y los publica en WordPress usando la API de OpenAI.
- * Version: 1.1.34
+ * Version: 1.2
  * Author: <a href="https://albertomurillo.pro">Alberto Murillo</a>
  * Text Domain: autonews-rss-rewriter
  */
