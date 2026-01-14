@@ -112,6 +112,19 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
     $category_list_string = implode(', ', $all_categories); // Ej: "Casa Real, Corazón, Política"
     // --- FIN MEJORA ---
 
+    // ✅ CATEGORÍAS PERMITIDAS = SOLO HIJAS DE UNA CATEGORÍA PADRE
+$parent_id = (int) get_option('dsrw_parent_category_id', 0);
+$allowed_category_ids = array();
+
+if ( $parent_id > 0 ) {
+    $allowed_terms = get_categories(array(
+        'hide_empty' => false,
+        'parent'     => $parent_id,
+    ));
+    $allowed_category_ids = wp_list_pluck($allowed_terms, 'term_id');
+}
+
+
     foreach ( $rss_items as $item ) {
         if ( $published_count >= $num_items ) {
             break;
@@ -249,6 +262,20 @@ if ( $feed_category_setting === 'none' ) {
     $categoria_final = (int) $feed_category_setting;
 }
 // --- FIN MODIFICACIÓN DE CATEGORÍAS ---
+
+// ✅ FORZAR categoría final a subcategorías del parent (si aplica)
+if ( ! empty($allowed_category_ids) ) {
+
+    // Si la categoría elegida no es una hija permitida, forzamos una permitida (aleatoria)
+    if ( empty($categoria_final) || ! in_array((int)$categoria_final, $allowed_category_ids, true) ) {
+
+        $categoria_final = (int) $allowed_category_ids[array_rand($allowed_category_ids)];
+
+        dsrw_write_log('[AutoNews] Categoría fuera del árbol permitido. Forzando a subcategoría permitida ID: ' . $categoria_final);
+    }
+}
+
+
 
 
         // Asignar el autor

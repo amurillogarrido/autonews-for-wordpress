@@ -49,6 +49,7 @@ function dsrw_register_settings() {
     register_setting( 'dsrw_options_group', 'dsrw_custom_prompt' ); 
     register_setting( 'dsrw_options_group', 'dsrw_num_articulos', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_publish_delay', 'absint' );
+    register_setting( 'dsrw_options_group', 'dsrw_parent_category_id', 'absint' );
     register_setting( 'dsrw_options_group', 'dsrw_cron_interval', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_default_author', 'sanitize_text_field' );
     register_setting( 'dsrw_options_group', 'dsrw_selected_language', 'sanitize_text_field' );
@@ -492,6 +493,38 @@ Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "catego
                         <?php esc_html_e( 'Selecciona el intervalo para ejecutar la tarea cron.', 'autonews-rss-rewriter' ); ?>
                     </p>
                 </div>
+
+                <div class="dsrw-field-group">
+    <label for="dsrw_parent_category_id">
+        <?php esc_html_e('Categoría padre (solo usar subcategorías)', 'autonews-rss-rewriter'); ?>
+    </label>
+
+    <?php
+    $saved_parent_id = (int) get_option('dsrw_parent_category_id', 0);
+
+    // Solo categorías padre (parent = 0) para que el selector sea limpio
+    $parent_categories = get_categories(array(
+        'hide_empty' => false,
+        'parent'     => 0,
+    ));
+    ?>
+
+    <select name="dsrw_parent_category_id" id="dsrw_parent_category_id">
+        <option value="0" <?php selected($saved_parent_id, 0); ?>>
+            <?php esc_html_e('-- Desactivado (usar cualquier categoría) --', 'autonews-rss-rewriter'); ?>
+        </option>
+
+        <?php foreach ($parent_categories as $cat) : ?>
+            <option value="<?php echo esc_attr($cat->term_id); ?>" <?php selected($saved_parent_id, (int)$cat->term_id); ?>>
+                <?php echo esc_html($cat->name); ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+
+    <p class="description">
+        <?php esc_html_e('Si eliges una categoría padre, AutoNews solo publicará en sus subcategorías. Si la IA o el mapeo eligen otra, se forzará a una subcategoría válida.', 'autonews-rss-rewriter'); ?>
+    </p>
+</div>
 
                 <div class="dsrw-field-group">
                     <label for="dsrw_allow_category_creation">
