@@ -132,13 +132,46 @@ if ( $parent_id > 0 ) {
     
         $titulo_original = $item->get_title();
         $enlace = $item->get_link();
-        $enlace_normalizado = preg_replace('/(\?.*)|(#.*)/', '', strtolower(trim($enlace)));
-        $hash = md5( $enlace_normalizado );        
+        
+        // ===== MEJORA: NORMALIZACIÓN DE URL MÁS ROBUSTA =====
+        // 1. Convertir a minúsculas y quitar espacios
+        $enlace_normalizado = strtolower(trim($enlace));
+        
+        // 2. Quitar protocolo (http:// o https://)
+        $enlace_normalizado = preg_replace('/^https?:\/\//', '', $enlace_normalizado);
+        
+        // 3. Quitar www. si existe
+        $enlace_normalizado = preg_replace('/^www\./', '', $enlace_normalizado);
+        
+        // 4. Quitar parámetros GET (?) y anclas (#)
+        $enlace_normalizado = preg_replace('/(\?.*)|(#.*)/', '', $enlace_normalizado);
+        
+        // 5. Quitar barra final si existe
+        $enlace_normalizado = rtrim($enlace_normalizado, '/');
+        
+        // 6. Generar hash
+        $hash = md5( $enlace_normalizado );
+        
+        dsrw_write_log( "[AutoNews] URL Original: $enlace" );
+        dsrw_write_log( "[AutoNews] URL Normalizada: $enlace_normalizado" );
+        dsrw_write_log( "[AutoNews] Hash generado: $hash" );
 
         if ( is_array($logs) ) {
             $logs[] = "📝 Reescribiendo artículo " . ($published_count + 1) . ": \"$titulo_original\"";
         }
     
+        // ===== MEJORA: VERIFICACIÓN DE DUPLICADOS CON TRANSIENT =====
+        // Primero verificamos si hay una reserva temporal (transient) para este hash
+        $transient_key = 'dsrw_processing_' . $hash;
+        if ( get_transient( $transient_key ) ) {
+            dsrw_write_log( "[AutoNews] Artículo está siendo procesado en este momento (transient activo): $enlace" );
+            if ( is_array($logs) ) {
+                $logs[] = "⏳ Ignorado (en proceso): \"$titulo_original\"";
+            }
+            continue;
+        }
+        
+        // Luego verificamos en la base de datos
         if ( dsrw_is_duplicate( $hash ) ) {
             dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Artículo duplicado detectado: ', 'autonews-rss-rewriter' ) . $enlace );
             if ( is_array($logs) ) {
@@ -146,6 +179,11 @@ if ( $parent_id > 0 ) {
             }
             continue;
         }
+        
+        // ===== RESERVAR ESTE HASH TEMPORALMENTE =====
+        // Creamos un transient de 5 minutos para evitar procesamiento simultáneo
+        set_transient( $transient_key, true, 5 * MINUTE_IN_SECONDS );
+        dsrw_write_log( "[AutoNews] Transient creado para hash: $hash (válido por 5 minutos)" );
         
 
         // Obtener contenido
@@ -338,6 +376,9 @@ if ( ! empty($allowed_category_ids) ) {
         $post_id = wp_insert_post( $post_data );
 
 if ( is_wp_error( $post_id ) ) {
+    // Si falla la inserción, eliminar el transient para permitir reintento
+    delete_transient( $transient_key );
+    
     dsrw_write_log( '[AutoNews RSS Rewriter] ' . __( 'Error al insertar post: ', 'autonews-rss-rewriter' ) . $post_id->get_error_message() );
     dsrw_send_error_email(
         __( 'AutoNews RSS Rewriter - Error al Insertar Post', 'autonews-rss-rewriter' ),
@@ -346,10 +387,24 @@ if ( is_wp_error( $post_id ) ) {
     continue;
 }
 
+// ===== ÉXITO: Post creado, ahora guardar hash INMEDIATAMENTE =====
 // Si llegamos aquí, $post_id es un entero válido
 update_post_meta( $post_id, '_dsrw_original_hash', $hash );
-clean_post_cache( $post_id ); // vacía caché para que get_posts() lo vea
-dsrw_write_log( "[AutoNews] Hash guardado para post #{$post_id}: " . get_post_meta( $post_id, '_dsrw_original_hash', true ) );
+
+// Limpiar cachés agresivamente
+wp_cache_delete( $post_id, 'posts' );
+wp_cache_delete( $post_id, 'post_meta' );
+clean_post_cache( $post_id );
+
+// Forzar actualización de la caché de get_posts
+wp_cache_flush(); // Esto limpia TODA la caché de objetos
+
+// Eliminar el transient ya que el hash está guardado permanentemente
+delete_transient( $transient_key );
+
+dsrw_write_log( "[AutoNews] ✅ Post #{$post_id} creado correctamente" );
+dsrw_write_log( "[AutoNews] ✅ Hash guardado para post #{$post_id}: " . get_post_meta( $post_id, '_dsrw_original_hash', true ) );
+dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
 
 
         // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ MODIFICACIÓN AQUI (CONTAR PUBLICADOS TRAS INSERTAR) ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -630,6 +685,9 @@ function dsrw_find_best_category_match( $categoria_sugerida ) {
  * @return bool         True si ya existe, false otherwise.
  */
 function dsrw_is_duplicate( $hash ) {
+    // Limpiar caché antes de consultar
+    wp_cache_flush();
+    
     $existing = get_posts( array(
         'post_type'      => 'post',
         'post_status'    => array( 'publish', 'future', 'draft', 'pending', 'private' ),
@@ -638,8 +696,19 @@ function dsrw_is_duplicate( $hash ) {
         'fields'         => 'ids',
         'numberposts'    => 1,
         'suppress_filters' => false,
+        'cache_results'  => false, // Desactivar caché en esta consulta
+        'no_found_rows'  => true,  // No necesitamos el total
     ) );
-    return ! empty( $existing );
+    
+    $is_duplicate = ! empty( $existing );
+    
+    if ( $is_duplicate ) {
+        dsrw_write_log( "[AutoNews] ⚠️ Duplicado encontrado. Hash: $hash existe en post ID: " . $existing[0] );
+    } else {
+        dsrw_write_log( "[AutoNews] ✅ Hash único confirmado: $hash" );
+    }
+    
+    return $is_duplicate;
 }
 
 /**
