@@ -389,7 +389,29 @@ if ( is_wp_error( $post_id ) ) {
 
 // ===== ÉXITO: Post creado, ahora guardar hash INMEDIATAMENTE =====
 // Si llegamos aquí, $post_id es un entero válido
-update_post_meta( $post_id, '_dsrw_original_hash', $hash );
+$hash_saved = update_post_meta( $post_id, '_dsrw_original_hash', $hash );
+
+// VERIFICACIÓN INMEDIATA: Leer el hash recién guardado
+$hash_verificado = get_post_meta( $post_id, '_dsrw_original_hash', true );
+
+if ( empty($hash_verificado) ) {
+    dsrw_write_log( "[AutoNews] ⚠️⚠️⚠️ CRÍTICO: El hash NO se guardó correctamente para post #{$post_id}" );
+    dsrw_write_log( "[AutoNews] Intentando guardar nuevamente..." );
+    
+    // Intentar de nuevo con add_post_meta (por si update_post_meta falla)
+    delete_post_meta( $post_id, '_dsrw_original_hash' );
+    add_post_meta( $post_id, '_dsrw_original_hash', $hash, true );
+    
+    // Verificar otra vez
+    $hash_verificado = get_post_meta( $post_id, '_dsrw_original_hash', true );
+    if ( empty($hash_verificado) ) {
+        dsrw_write_log( "[AutoNews] ❌❌❌ ERROR GRAVE: No se pudo guardar el hash después de 2 intentos" );
+    } else {
+        dsrw_write_log( "[AutoNews] ✅ Hash guardado correctamente en segundo intento: $hash_verificado" );
+    }
+} else {
+    dsrw_write_log( "[AutoNews] ✅ Hash verificado correctamente para post #{$post_id}: $hash_verificado" );
+}
 
 // Limpiar cachés agresivamente
 wp_cache_delete( $post_id, 'posts' );
@@ -402,8 +424,7 @@ wp_cache_flush(); // Esto limpia TODA la caché de objetos
 // Eliminar el transient ya que el hash está guardado permanentemente
 delete_transient( $transient_key );
 
-dsrw_write_log( "[AutoNews] ✅ Post #{$post_id} creado correctamente" );
-dsrw_write_log( "[AutoNews] ✅ Hash guardado para post #{$post_id}: " . get_post_meta( $post_id, '_dsrw_original_hash', true ) );
+dsrw_write_log( "[AutoNews] ✅ Post #{$post_id} creado correctamente: '$nuevo_titulo'" );
 dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
 
 
@@ -416,8 +437,13 @@ dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
         }        
 
         // --- SECCIÓN DE SELECCIÓN DE IMAGEN CON VALIDACIÓN DE RESOLUCIÓN ---
+        dsrw_write_log( "[AutoNews] 🖼️ Iniciando búsqueda de imagen destacada para post #{$post_id}" );
+        
         $img_url = '';
         $enclosures = $item->get_enclosures();
+        
+        dsrw_write_log( "[AutoNews] Enclosures encontrados: " . (empty($enclosures) ? "0" : count($enclosures)) );
+        
         if ( ! empty( $enclosures ) ) {
             foreach ( $enclosures as $enclosure ) {
                 // Si se especifica el atributo "medium" y es "image"
@@ -425,32 +451,37 @@ dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
                     if ( isset( $enclosure->attributes['width'] ) && isset( $enclosure->attributes['height'] ) ) {
                         $width = (int) $enclosure->attributes['width'];
                         $height = (int) $enclosure->attributes['height'];
+                        dsrw_write_log( "[AutoNews] Imagen encontrada en media:content con dimensiones: {$width}x{$height}" );
                         if ( $width < 300 || $height < 200 ) {
+                            dsrw_write_log( "[AutoNews] ⚠️ Imagen rechazada: Demasiado pequeña (mínimo 300x200)" );
                             continue; // Imagen demasiado pequeña, saltar
                         }
                     }
                     $img_url = esc_url_raw( $enclosure->get_link() );
-                    dsrw_write_log( "[AutoNews] Imagen seleccionada desde media:content: " . $img_url );
+                    dsrw_write_log( "[AutoNews] ✅ Imagen seleccionada desde media:content: " . $img_url );
                     break;
                 }
                 // Si no hay atributo "medium" y el URL parece una imagen
-                elseif ( empty( $enclosure->attributes['medium'] ) && preg_match( '/\.(jpg|jpeg|png|gif)$/i', $enclosure->get_link() ) ) {
+                elseif ( empty( $enclosure->attributes['medium'] ) && preg_match( '/\.(jpg|jpeg|png|gif|webp)$/i', $enclosure->get_link() ) ) {
                     $img_url = esc_url_raw( $enclosure->get_link() );
-                    dsrw_write_log( "[AutoNews] Imagen seleccionada (sin medium) desde enclosure: " . $img_url );
+                    dsrw_write_log( "[AutoNews] ✅ Imagen seleccionada (sin medium) desde enclosure: " . $img_url );
                     break;
                 }
             }
         }
+        
         // Si no se encontró imagen en enclosures, se revisa media:thumbnail
         if ( empty( $img_url ) ) {
+            dsrw_write_log( "[AutoNews] No se encontró imagen en enclosures, buscando en media:thumbnail..." );
             $thumbnails = $item->get_item_tags( SIMPLEPIE_NAMESPACE_MEDIARSS, 'thumbnail' );
             if ( ! empty( $thumbnails ) && isset( $thumbnails[0]['attribs']['']['url'] ) ) {
                 if ( isset( $thumbnails[0]['attribs']['']['width'] ) && isset( $thumbnails[0]['attribs']['']['height'] ) ) {
                     $width = (int) $thumbnails[0]['attribs']['']['width'];
                     $height = (int) $thumbnails[0]['attribs']['']['height'];
+                    dsrw_write_log( "[AutoNews] Thumbnail encontrado con dimensiones: {$width}x{$height}" );
                     if ( $width >= 600 && $height >= 600 ) {
                         $img_url = esc_url_raw( $thumbnails[0]['attribs']['']['url'] );
-                        dsrw_write_log( "[AutoNews] Usando imagen de media:thumbnail: " . $img_url );
+                        dsrw_write_log( "[AutoNews] ✅ Usando imagen de media:thumbnail: " . $img_url );
                     }
                 } else {
                     $img_url = esc_url_raw( $thumbnails[0]['attribs']['']['url'] );
@@ -458,36 +489,74 @@ dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
                 }
             }
         }
+        
         // Extracción de imágenes (si está habilitado)
-        if ( get_option('dsrw_enable_image_extraction') === '1' ) {
+        $image_extraction_enabled = get_option('dsrw_enable_image_extraction');
+        dsrw_write_log( "[AutoNews] Extracción de imágenes: " . ($image_extraction_enabled === '1' ? 'ACTIVADA' : 'DESACTIVADA (valor: ' . $image_extraction_enabled . ')') );
+        
+        if ( $image_extraction_enabled === '1' ) {
+            dsrw_write_log( "[AutoNews] Iniciando extracción avanzada de imágenes..." );
+            
             if ( empty( $img_url ) ) {
+                dsrw_write_log( "[AutoNews] Intentando dsrw_get_larger_image_url()..." );
                 $img_url = dsrw_get_larger_image_url( $img_url );
+                if ( ! empty($img_url) ) {
+                    dsrw_write_log( "[AutoNews] ✅ Imagen encontrada con get_larger_image_url: " . $img_url );
+                }
             }
+            
             if ( empty( $img_url ) ) {
+                dsrw_write_log( "[AutoNews] Intentando dsrw_get_featured_image_from_meta()..." );
                 $img_url = dsrw_get_featured_image_from_meta( $contenido );
+                if ( ! empty($img_url) ) {
+                    dsrw_write_log( "[AutoNews] ✅ Imagen encontrada en meta tags: " . $img_url );
+                }
             }
+            
             if ( empty( $img_url ) ) {
+                dsrw_write_log( "[AutoNews] Intentando dsrw_get_featured_image_from_schema()..." );
                 $img_url = dsrw_get_featured_image_from_schema( $contenido );
+                if ( ! empty($img_url) ) {
+                    dsrw_write_log( "[AutoNews] ✅ Imagen encontrada en schema: " . $img_url );
+                }
             }
+            
             if ( empty( $img_url ) ) {
+                dsrw_write_log( "[AutoNews] Intentando dsrw_extract_first_image()..." );
                 $img_url = dsrw_extract_first_image( $contenido );
+                if ( ! empty($img_url) ) {
+                    dsrw_write_log( "[AutoNews] ✅ Imagen extraída del contenido: " . $img_url );
+                }
             }
 
             if ( ! empty( $img_url ) ) {
+                dsrw_write_log( "[AutoNews] Subiendo imagen destacada: " . $img_url );
                 $attachment_id = dsrw_upload_featured_image( $img_url, $post_id );
                 if ( $attachment_id ) {
                     set_post_thumbnail( $post_id, $attachment_id );
+                    dsrw_write_log( "[AutoNews] ✅ Imagen destacada asignada correctamente (ID: {$attachment_id})" );
                 } else {
                     // Imagen inválida; se fuerza la generación de miniatura
+                    dsrw_write_log( "[AutoNews] ⚠️ Error al subir imagen, se generará miniatura automática" );
                     $img_url = '';
                 }
+            } else {
+                dsrw_write_log( "[AutoNews] ⚠️ No se encontró ninguna imagen en el artículo después de búsqueda exhaustiva" );
             }
+        } else {
+            dsrw_write_log( "[AutoNews] Extracción de imágenes desactivada, saltando búsqueda avanzada" );
         }
         
         // Si no hay imagen válida y está activa la generación automática
-        if ( empty( $img_url ) && get_option('dsrw_enable_thumbnail_generator') === '1' ) {
+        $thumbnail_generator_enabled = get_option('dsrw_enable_thumbnail_generator');
+        dsrw_write_log( "[AutoNews] Generador de miniaturas: " . ($thumbnail_generator_enabled === '1' ? 'ACTIVADO' : 'DESACTIVADO (valor: ' . $thumbnail_generator_enabled . ')') );
+        
+        if ( empty( $img_url ) && $thumbnail_generator_enabled === '1' ) {
+            dsrw_write_log( "[AutoNews] 🎨 Generando miniatura automática con el título del post..." );
             $tmp_img = dsrw_generate_thumbnail_with_text( $nuevo_titulo );
+            
             if ( file_exists($tmp_img) ) {
+                dsrw_write_log( "[AutoNews] ✅ Miniatura generada en: " . $tmp_img );
                 $upload = media_handle_sideload( array(
                     'name'     => basename($tmp_img),
                     'tmp_name' => $tmp_img,
@@ -495,13 +564,17 @@ dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
 
                 if ( ! is_wp_error( $upload ) ) {
                     set_post_thumbnail( $post_id, $upload );
-                    dsrw_write_log('[AutoNews] Miniatura generada con el título y asignada correctamente.');
+                    dsrw_write_log('[AutoNews] ✅ Miniatura generada con el título y asignada correctamente (ID: ' . $upload . ')');
                 } else {
-                    dsrw_write_log('[AutoNews] Error al subir miniatura generada: ' . $upload->get_error_message());
+                    dsrw_write_log('[AutoNews] ❌ Error al subir miniatura generada: ' . $upload->get_error_message());
                 }
 
                 @unlink($tmp_img);
+            } else {
+                dsrw_write_log('[AutoNews] ❌ Error: No se pudo generar el archivo de miniatura');
             }
+        } elseif ( empty( $img_url ) ) {
+            dsrw_write_log( "[AutoNews] ⚠️ Post sin imagen destacada y generador desactivado" );
         }
     }
 }
