@@ -95,5 +95,63 @@ function dsrw_deactivate_plugin() {
 // Asegura que WordPress reconozca nuestros intervalos personalizados
 add_filter( 'cron_schedules', 'dsrw_add_custom_cron_intervals' );
 
-// Ejecuta el procesamiento de feeds
-add_action( 'dsrw_cron_hook', 'dsrw_process_all_feeds' );
+/**
+ * Wrapper para ejecutar el procesamiento desde CRON con contexto completo.
+ * Esta función se asegura de que todo esté cargado antes de procesar.
+ */
+function dsrw_cron_execute_wrapper() {
+    // Log de inicio
+    dsrw_write_log( '[AutoNews CRON] ========================================' );
+    dsrw_write_log( '[AutoNews CRON] Iniciando ejecución automática por CRON' );
+    dsrw_write_log( '[AutoNews CRON] Fecha: ' . current_time( 'mysql' ) );
+    
+    // Verificar que WordPress está completamente cargado
+    if ( ! did_action( 'init' ) ) {
+        dsrw_write_log( '[AutoNews CRON] ⚠️ WordPress no está completamente cargado. Esperando...' );
+        // No ejecutar aún, esperar al siguiente ciclo
+        return;
+    }
+    
+    // Verificar que tenemos todas las funciones necesarias
+    if ( ! function_exists( 'wp_insert_post' ) ) {
+        dsrw_write_log( '[AutoNews CRON] ❌ ERROR: wp_insert_post no está disponible' );
+        return;
+    }
+    
+    if ( ! function_exists( 'update_post_meta' ) ) {
+        dsrw_write_log( '[AutoNews CRON] ❌ ERROR: update_post_meta no está disponible' );
+        return;
+    }
+    
+    // Cargar dependencias de medios si no están cargadas
+    if ( ! function_exists( 'media_handle_sideload' ) ) {
+        require_once( ABSPATH . 'wp-admin/includes/media.php' );
+        require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        require_once( ABSPATH . 'wp-admin/includes/image.php' );
+        dsrw_write_log( '[AutoNews CRON] ✅ Funciones de medios cargadas manualmente' );
+    }
+    
+    // Limpiar caché antes de empezar
+    wp_cache_flush();
+    dsrw_write_log( '[AutoNews CRON] ✅ Caché limpiada' );
+    
+    // Ejecutar el procesamiento
+    dsrw_write_log( '[AutoNews CRON] 🚀 Iniciando procesamiento de feeds...' );
+    
+    try {
+        dsrw_process_all_feeds();
+        dsrw_write_log( '[AutoNews CRON] ✅ Procesamiento completado correctamente' );
+    } catch ( Exception $e ) {
+        dsrw_write_log( '[AutoNews CRON] ❌ ERROR durante el procesamiento: ' . $e->getMessage() );
+        dsrw_write_log( '[AutoNews CRON] Stack trace: ' . $e->getTraceAsString() );
+    }
+    
+    // Limpiar caché al finalizar
+    wp_cache_flush();
+    
+    dsrw_write_log( '[AutoNews CRON] Ejecución finalizada' );
+    dsrw_write_log( '[AutoNews CRON] ========================================' );
+}
+
+// Ejecuta el procesamiento de feeds con el wrapper
+add_action( 'dsrw_cron_hook', 'dsrw_cron_execute_wrapper' );

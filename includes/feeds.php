@@ -389,28 +389,73 @@ if ( is_wp_error( $post_id ) ) {
 
 // ===== ÉXITO: Post creado, ahora guardar hash INMEDIATAMENTE =====
 // Si llegamos aquí, $post_id es un entero válido
+dsrw_write_log( "[AutoNews] 💾 Guardando hash para post #{$post_id}..." );
+
 $hash_saved = update_post_meta( $post_id, '_dsrw_original_hash', $hash );
+dsrw_write_log( "[AutoNews] Resultado de update_post_meta: " . ($hash_saved ? 'TRUE' : 'FALSE') );
 
 // VERIFICACIÓN INMEDIATA: Leer el hash recién guardado
+wp_cache_delete( $post_id, 'post_meta' ); // Limpiar caché antes de leer
 $hash_verificado = get_post_meta( $post_id, '_dsrw_original_hash', true );
 
 if ( empty($hash_verificado) ) {
     dsrw_write_log( "[AutoNews] ⚠️⚠️⚠️ CRÍTICO: El hash NO se guardó correctamente para post #{$post_id}" );
-    dsrw_write_log( "[AutoNews] Intentando guardar nuevamente..." );
+    dsrw_write_log( "[AutoNews] INTENTO 2: Usando add_post_meta..." );
     
     // Intentar de nuevo con add_post_meta (por si update_post_meta falla)
     delete_post_meta( $post_id, '_dsrw_original_hash' );
-    add_post_meta( $post_id, '_dsrw_original_hash', $hash, true );
+    $result_add = add_post_meta( $post_id, '_dsrw_original_hash', $hash, true );
+    dsrw_write_log( "[AutoNews] Resultado de add_post_meta: " . ($result_add ? 'TRUE' : 'FALSE') );
     
     // Verificar otra vez
+    wp_cache_delete( $post_id, 'post_meta' );
     $hash_verificado = get_post_meta( $post_id, '_dsrw_original_hash', true );
+    
     if ( empty($hash_verificado) ) {
-        dsrw_write_log( "[AutoNews] ❌❌❌ ERROR GRAVE: No se pudo guardar el hash después de 2 intentos" );
+        dsrw_write_log( "[AutoNews] ❌ INTENTO 2 falló. Probando INTENTO 3: Inserción directa en BD..." );
+        
+        // INTENTO 3: Usar $wpdb directamente (última opción)
+        global $wpdb;
+        $result_db = $wpdb->insert(
+            $wpdb->postmeta,
+            array(
+                'post_id' => $post_id,
+                'meta_key' => '_dsrw_original_hash',
+                'meta_value' => $hash
+            ),
+            array('%d', '%s', '%s')
+        );
+        
+        dsrw_write_log( "[AutoNews] Resultado de inserción directa en BD: " . ($result_db ? 'SUCCESS' : 'FAILED') );
+        
+        if ( $wpdb->last_error ) {
+            dsrw_write_log( "[AutoNews] ❌ Error de MySQL: " . $wpdb->last_error );
+        }
+        
+        // Verificar una última vez
+        wp_cache_flush(); // Limpiar TODA la caché
+        $hash_verificado = get_post_meta( $post_id, '_dsrw_original_hash', true );
+        
+        if ( empty($hash_verificado) ) {
+            dsrw_write_log( "[AutoNews] ❌❌❌ ERROR CRÍTICO: No se pudo guardar el hash después de 3 intentos" );
+            dsrw_write_log( "[AutoNews] Verificar permisos de base de datos y plugins de seguridad" );
+            
+            // Enviar email de emergencia
+            dsrw_send_error_email(
+                'AutoNews - ERROR CRÍTICO: No se puede guardar hash',
+                "No se pudo guardar el hash para el post #{$post_id} después de 3 intentos.\n" .
+                "Título: {$nuevo_titulo}\n" .
+                "Hash: {$hash}\n" .
+                "Esto causará duplicados. Revisa urgentemente."
+            );
+        } else {
+            dsrw_write_log( "[AutoNews] ✅ Hash guardado correctamente en tercer intento (BD directa): $hash_verificado" );
+        }
     } else {
         dsrw_write_log( "[AutoNews] ✅ Hash guardado correctamente en segundo intento: $hash_verificado" );
     }
 } else {
-    dsrw_write_log( "[AutoNews] ✅ Hash verificado correctamente para post #{$post_id}: $hash_verificado" );
+    dsrw_write_log( "[AutoNews] ✅ Hash verificado correctamente en primer intento para post #{$post_id}: $hash_verificado" );
 }
 
 // Limpiar cachés agresivamente
