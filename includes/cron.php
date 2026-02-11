@@ -153,5 +153,5 @@ function dsrw_cron_execute_wrapper() {
     dsrw_write_log( '[AutoNews CRON] ========================================' );
 }
 
-// Ejecuta el procesamiento de feeds con el wrapper
+// Único handler permitido para 'dsrw_cron_hook': centraliza el contexto y llama internamente a dsrw_process_all_feeds().
 add_action( 'dsrw_cron_hook', 'dsrw_cron_execute_wrapper' );
