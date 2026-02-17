@@ -32,7 +32,27 @@ function dsrw_process_all_feeds(&$logs = null) {
     }
 
     $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
-    if (is_array($logs)) $logs[] = "🔗 Procesando " . count($rss_urls) . " feeds RSS...";
+    
+    // Obtener intervalos individuales de cada feed
+    $feed_cron_intervals = get_option( 'dsrw_feed_cron_intervals', array() );
+    if ( ! is_array( $feed_cron_intervals ) ) {
+        $feed_cron_intervals = array();
+    }
+    
+    // Filtrar: solo procesar feeds que usen el cron global (valor 'global' o vacío)
+    $feeds_to_process = array();
+    foreach ( $rss_urls as $index => $url ) {
+        $feed_interval = isset( $feed_cron_intervals[ $index ] ) ? $feed_cron_intervals[ $index ] : 'global';
+        if ( $feed_interval === 'global' || $feed_interval === '' ) {
+            $feeds_to_process[ $index ] = $url;
+        }
+    }
+    
+    if (is_array($logs)) $logs[] = "🔗 Procesando " . count($feeds_to_process) . " feeds RSS (cron global)...";
+    if (is_array($logs) && count($feeds_to_process) < count($rss_urls)) {
+        $feeds_individuales = count($rss_urls) - count($feeds_to_process);
+        $logs[] = "ℹ️ " . $feeds_individuales . " feed(s) tienen cron individual y se procesan por separado.";
+    }
     $feed_categories = get_option( 'dsrw_feed_categories', array() );
     $default_author_option = get_option( 'dsrw_default_author', '1' );
     $available_authors = get_users( array(
@@ -43,7 +63,7 @@ function dsrw_process_all_feeds(&$logs = null) {
     $base_publish_time = current_time( 'timestamp' );
     $publish_delay_minutes = (int) get_option( 'dsrw_publish_delay', 0 );
 
-    foreach ( $rss_urls as $index => $url ) {
+    foreach ( $feeds_to_process as $index => $url ) {
         // Se toma la configuración del feed sin modificarla para cada artículo del feed
         $feed_category_setting = isset( $feed_categories[ $index ] ) ? $feed_categories[ $index ] : '';
         dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs );
@@ -976,4 +996,50 @@ function dsrw_get_full_content( $url ) {
         dsrw_send_error_email( __( 'AutoNews RSS Rewriter - Error al Parsear Contenido', 'autonews-rss-rewriter' ), __( 'Error al parsear el contenido: ', 'autonews-rss-rewriter' ) . $e->getMessage() );
         return false;
     }
+}
+/**
+ * Procesa un único feed por su índice.
+ * Esta función es utilizada por los crons individuales de cada feed.
+ *
+ * @param int    $feed_index Índice del feed en la lista de URLs RSS.
+ * @param array  &$logs (Opcional) Array para registrar logs para AJAX.
+ */
+function dsrw_process_feed_by_index( $feed_index, &$logs = null ) {
+    $rss_urls_raw    = get_option( 'dsrw_rss_urls', '' );
+    $openai_api_key  = get_option( 'dsrw_openai_api_key' );
+    $openai_api_base = get_option( 'dsrw_openai_api_base', 'https://api.openai.com' );
+    $num_articulos   = (int) get_option( 'dsrw_num_articulos', 5 );
+
+    if ( empty( $rss_urls_raw ) || empty( $openai_api_key ) ) {
+        dsrw_write_log( '[AutoNews RSS Rewriter] ' . __( 'Faltan datos de configuración (RSS URLs o API Key).', 'autonews-rss-rewriter' ) );
+        return;
+    }
+
+    $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+    // Reindexar para asegurar que los índices coincidan
+    $rss_urls = array_values( $rss_urls );
+    
+    if ( ! isset( $rss_urls[ $feed_index ] ) ) {
+        dsrw_write_log( '[AutoNews CRON-FEED] ❌ Feed #' . $feed_index . ' no existe en la configuración.' );
+        return;
+    }
+
+    $url = $rss_urls[ $feed_index ];
+    $feed_categories = get_option( 'dsrw_feed_categories', array() );
+    $feed_category_setting = isset( $feed_categories[ $feed_index ] ) ? $feed_categories[ $feed_index ] : '';
+    
+    $default_author_option = get_option( 'dsrw_default_author', '1' );
+    $available_authors = get_users( array(
+        'who'     => 'authors',
+        'orderby' => 'display_name',
+        'order'   => 'ASC',
+    ) );
+    $base_publish_time = current_time( 'timestamp' );
+    $publish_delay_minutes = (int) get_option( 'dsrw_publish_delay', 0 );
+
+    if ( is_array($logs) ) {
+        $logs[] = "🔗 Procesando feed individual #" . $feed_index . ": " . $url;
+    }
+
+    dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs );
 }

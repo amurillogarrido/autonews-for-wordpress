@@ -37,6 +37,30 @@ function sanitize_feed_categories_array( $input ) {
 
 
 /**
+ * Sanitiza el array de intervalos de cron por feed.
+ *
+ * @param array $input El array recibido del formulario.
+ * @return array El array sanitizado.
+ */
+function dsrw_sanitize_feed_cron_intervals( $input ) {
+    $sanitized = array();
+    $valid_values = array( 'global', 'disabled', '30', '60', '120', '180', '360', '720', '1440' );
+    if ( is_array( $input ) ) {
+        foreach ( $input as $index => $value ) {
+            $clean_value = sanitize_text_field( trim( $value ) );
+            $index_int = intval( $index );
+            if ( in_array( $clean_value, $valid_values, true ) ) {
+                $sanitized[ $index_int ] = $clean_value;
+            } else {
+                $sanitized[ $index_int ] = 'global';
+            }
+        }
+    }
+    return $sanitized;
+}
+
+
+/**
  * Registrar configuraciones y ajustes del plugin.
  */
 function dsrw_register_settings() {
@@ -63,6 +87,10 @@ function dsrw_register_settings() {
 
     // --- ¡NUEVO AJUSTE! (Mejora 3: Tags) ---
     register_setting('dsrw_options_group', 'dsrw_enable_tags', 'intval');
+    // --- FIN NUEVO AJUSTE ---
+
+    // --- ¡NUEVO AJUSTE! (Cron individual por feed) ---
+    register_setting('dsrw_options_group', 'dsrw_feed_cron_intervals', 'dsrw_sanitize_feed_cron_intervals');
     // --- FIN NUEVO AJUSTE ---
 }
 add_action( 'admin_init', 'dsrw_register_settings' );
@@ -247,6 +275,56 @@ https://otro-sitio.com/feed"
                     <?php endforeach; ?>
                     <p class="description">
                         <?php esc_html_e( 'Selecciona la categoría correspondiente para cada feed RSS. "Categoría Automática" usará la sugerencia de la IA.', 'autonews-rss-rewriter' ); ?>
+                    </p>
+                </div>
+
+                <div class="dsrw-field-group">
+                    <label><?php esc_html_e( 'Intervalo de Cron por Feed', 'autonews-rss-rewriter' ); ?></label>
+                    <p><?php esc_html_e( 'Asigna un intervalo de ejecución individual a cada feed. Si seleccionas "Usar Cron Global", el feed se ejecutará con el intervalo general configurado más abajo.', 'autonews-rss-rewriter' ); ?></p>
+                    <?php
+                    $feed_cron_intervals = get_option( 'dsrw_feed_cron_intervals', array() );
+                    if ( ! is_array( $feed_cron_intervals ) ) {
+                        $feed_cron_intervals = array();
+                    }
+
+                    foreach ( $rss_urls as $index => $url ) :
+                        $saved_cron_value = isset( $feed_cron_intervals[ $index ] ) ? $feed_cron_intervals[ $index ] : 'global';
+                        ?>
+                        <div class="dsrw-feed-mapping">
+                            <label for="dsrw_feed_cron_intervals_<?php echo esc_attr( $index ); ?>"><?php echo esc_html( $url ); ?></label>
+                            <select name="dsrw_feed_cron_intervals[<?php echo esc_attr( $index ); ?>]" id="dsrw_feed_cron_intervals_<?php echo esc_attr( $index ); ?>">
+                                <option value="global" <?php selected( $saved_cron_value, 'global' ); ?>>
+                                    <?php esc_html_e( '⏱️ Usar Cron Global', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="30" <?php selected( $saved_cron_value, '30' ); ?>>
+                                    <?php esc_html_e( 'Cada 30 minutos', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="60" <?php selected( $saved_cron_value, '60' ); ?>>
+                                    <?php esc_html_e( 'Cada hora', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="120" <?php selected( $saved_cron_value, '120' ); ?>>
+                                    <?php esc_html_e( 'Cada 2 horas', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="180" <?php selected( $saved_cron_value, '180' ); ?>>
+                                    <?php esc_html_e( 'Cada 3 horas', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="360" <?php selected( $saved_cron_value, '360' ); ?>>
+                                    <?php esc_html_e( 'Cada 6 horas', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="720" <?php selected( $saved_cron_value, '720' ); ?>>
+                                    <?php esc_html_e( 'Cada 12 horas', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="1440" <?php selected( $saved_cron_value, '1440' ); ?>>
+                                    <?php esc_html_e( 'Cada 24 horas', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                                <option value="disabled" <?php selected( $saved_cron_value, 'disabled' ); ?>>
+                                    <?php esc_html_e( '❌ Deshabilitado', 'autonews-rss-rewriter' ); ?>
+                                </option>
+                            </select>
+                        </div>
+                    <?php endforeach; ?>
+                    <p class="description">
+                        <?php esc_html_e( 'Los feeds con cron individual se ejecutarán de forma independiente. Los feeds con "Usar Cron Global" se procesarán todos juntos según el intervalo general. Recuerda pulsar "Programar Tarea Cron" en Herramientas después de guardar.', 'autonews-rss-rewriter' ); ?>
                     </p>
                 </div>
 
@@ -471,10 +549,10 @@ Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "catego
                             <?php esc_html_e( 'Cada 3 horas', 'autonews-rss-rewriter' ); ?>
                         </option>
                         <option 
-                            value="600" 
-                            <?php selected( get_option('dsrw_cron_interval'), '600' ); ?>
+                            value="360" 
+                            <?php selected( get_option('dsrw_cron_interval'), '360' ); ?>
                         >
-                            <?php esc_html_e( 'Cada 10 horas', 'autonews-rss-rewriter' ); ?>
+                            <?php esc_html_e( 'Cada 6 horas', 'autonews-rss-rewriter' ); ?>
                         </option>
                         <option 
                             value="720" 
@@ -705,17 +783,21 @@ Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "catego
         } else {
             $cron_interval = sanitize_text_field( get_option( 'dsrw_cron_interval', 'disabled' ) );
             if ( $cron_interval === 'disabled' ) {
-                echo '<div class="notice notice-warning"><p>' . esc_html__( 'No se ha seleccionado un intervalo válido para programar la tarea cron.', 'autonews-rss-rewriter' ) . '</p></div>';
+                echo '<div class="notice notice-warning"><p>' . esc_html__( 'No se ha seleccionado un intervalo válido para programar la tarea cron global.', 'autonews-rss-rewriter' ) . '</p></div>';
             } else {
                 wp_clear_scheduled_hook( 'dsrw_cron_hook' );
                 add_filter( 'cron_schedules', 'dsrw_add_custom_cron_intervals' );
                 $scheduled = wp_schedule_event( time(), 'dsrw_interval_' . $cron_interval, 'dsrw_cron_hook' );
                 if ( $scheduled ) {
-                    echo '<div class="notice notice-success"><p>' . esc_html__( 'Tarea cron programada exitosamente cada ', 'autonews-rss-rewriter' ) . esc_html( dsrw_get_cron_interval_label( $cron_interval ) ) . '.</p></div>';
+                    echo '<div class="notice notice-success"><p>' . esc_html__( 'Tarea cron global programada exitosamente cada ', 'autonews-rss-rewriter' ) . esc_html( dsrw_get_cron_interval_label( $cron_interval ) ) . '.</p></div>';
                 } else {
-                    echo '<div class="notice notice-error"><p>' . esc_html__( 'No se pudo programar la tarea cron. Puede que ya esté programada.', 'autonews-rss-rewriter' ) . '</p></div>';
+                    echo '<div class="notice notice-error"><p>' . esc_html__( 'No se pudo programar la tarea cron global. Puede que ya esté programada.', 'autonews-rss-rewriter' ) . '</p></div>';
                 }
             }
+
+            // Programar también los crons individuales de cada feed
+            dsrw_schedule_feed_crons();
+            echo '<div class="notice notice-info"><p>' . esc_html__( 'Crons individuales de feeds actualizados correctamente.', 'autonews-rss-rewriter' ) . '</p></div>';
         }
     }
 
@@ -724,8 +806,16 @@ Tu prompt DEBE pedir un JSON con las claves: "title", "content", "slug", "catego
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Permiso denegado para eliminar la tarea cron.', 'autonews-rss-rewriter' ) . '</p></div>';
         } else {
             $unscheduled = wp_clear_scheduled_hook( 'dsrw_cron_hook' );
+            
+            // Limpiar también todos los crons individuales de feeds
+            $rss_urls_raw_unsched = get_option( 'dsrw_rss_urls', '' );
+            $rss_urls_unsched = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw_unsched ) ) );
+            foreach ( $rss_urls_unsched as $unsched_index => $unsched_url ) {
+                wp_clear_scheduled_hook( 'dsrw_feed_cron_hook_' . $unsched_index );
+            }
+            
             if ( $unscheduled ) {
-                echo '<div class="notice notice-success"><p>' . esc_html__( 'Tarea cron eliminada exitosamente.', 'autonews-rss-rewriter' ) . '</p></div>';
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Tarea cron global y crons individuales eliminados exitosamente.', 'autonews-rss-rewriter' ) . '</p></div>';
             } else {
                 echo '<div class="notice notice-warning"><p>' . esc_html__( 'No se encontró ninguna tarea cron para eliminar.', 'autonews-rss-rewriter' ) . '</p></div>';
             }

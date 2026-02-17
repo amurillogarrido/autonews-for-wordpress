@@ -66,6 +66,23 @@ function dsrw_add_custom_cron_intervals( $schedules ) {
             break;
     }
 
+    // --- CRONS INDIVIDUALES POR FEED ---
+    // Registrar también los intervalos de los feeds individuales
+    $feed_cron_intervals = get_option( 'dsrw_feed_cron_intervals', array() );
+    if ( is_array( $feed_cron_intervals ) ) {
+        foreach ( $feed_cron_intervals as $index => $interval ) {
+            if ( ! empty( $interval ) && $interval !== 'global' && $interval !== 'disabled' ) {
+                $key = 'dsrw_interval_' . $interval;
+                if ( ! isset( $schedules[ $key ] ) ) {
+                    $schedules[ $key ] = array(
+                        'interval' => intval( $interval ) * MINUTE_IN_SECONDS,
+                        'display'  => sprintf( __( 'Cada %d Minutos (Feed)', 'autonews-rss-rewriter' ), intval( $interval ) ),
+                    );
+                }
+            }
+        }
+    }
+
     return $schedules;
 }
 
@@ -85,11 +102,20 @@ function dsrw_activate_plugin() {
 
 /**
  * Desactiva el cron del plugin.
- * Limpia cualquier tarea cron asociada al hook 'dsrw_cron_hook'.
+ * Limpia cualquier tarea cron asociada al hook 'dsrw_cron_hook' y todos los crons individuales.
  */
 function dsrw_deactivate_plugin() {
     wp_clear_scheduled_hook( 'dsrw_cron_hook' );
     dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Tarea cron desprogramada al desactivar el plugin.', 'autonews-rss-rewriter' ) );
+
+    // Limpiar también todos los crons individuales de feeds
+    $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
+    $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+    foreach ( $rss_urls as $index => $url ) {
+        $hook_name = 'dsrw_feed_cron_hook_' . $index;
+        wp_clear_scheduled_hook( $hook_name );
+    }
+    dsrw_write_log( "[AutoNews RSS Rewriter] " . __( 'Tareas cron individuales de feeds desprogramadas.', 'autonews-rss-rewriter' ) );
 }
 
 // Asegura que WordPress reconozca nuestros intervalos personalizados
@@ -135,8 +161,8 @@ function dsrw_cron_execute_wrapper() {
     wp_cache_flush();
     dsrw_write_log( '[AutoNews CRON] ✅ Caché limpiada' );
     
-    // Ejecutar el procesamiento
-    dsrw_write_log( '[AutoNews CRON] 🚀 Iniciando procesamiento de feeds...' );
+    // Ejecutar el procesamiento (solo feeds que usan el cron global)
+    dsrw_write_log( '[AutoNews CRON] 🚀 Iniciando procesamiento de feeds (cron global)...' );
     
     try {
         dsrw_process_all_feeds();
@@ -153,5 +179,107 @@ function dsrw_cron_execute_wrapper() {
     dsrw_write_log( '[AutoNews CRON] ========================================' );
 }
 
-// Ejecuta el procesamiento de feeds con el wrapper
+// Único handler permitido para 'dsrw_cron_hook': centraliza el contexto y llama internamente a dsrw_process_all_feeds().
 add_action( 'dsrw_cron_hook', 'dsrw_cron_execute_wrapper' );
+
+/**
+ * Wrapper para ejecutar un feed individual desde su propio CRON.
+ *
+ * @param int $feed_index Índice del feed en la lista de URLs RSS.
+ */
+function dsrw_cron_execute_single_feed( $feed_index ) {
+    $feed_index = intval( $feed_index );
+    
+    dsrw_write_log( '[AutoNews CRON-FEED] ========================================' );
+    dsrw_write_log( '[AutoNews CRON-FEED] Iniciando ejecución individual del feed #' . $feed_index );
+    dsrw_write_log( '[AutoNews CRON-FEED] Fecha: ' . current_time( 'mysql' ) );
+    
+    // Verificar que WordPress está completamente cargado
+    if ( ! did_action( 'init' ) ) {
+        dsrw_write_log( '[AutoNews CRON-FEED] ⚠️ WordPress no está completamente cargado. Esperando...' );
+        return;
+    }
+    
+    if ( ! function_exists( 'wp_insert_post' ) ) {
+        dsrw_write_log( '[AutoNews CRON-FEED] ❌ ERROR: wp_insert_post no está disponible' );
+        return;
+    }
+    
+    if ( ! function_exists( 'update_post_meta' ) ) {
+        dsrw_write_log( '[AutoNews CRON-FEED] ❌ ERROR: update_post_meta no está disponible' );
+        return;
+    }
+    
+    // Cargar dependencias de medios si no están cargadas
+    if ( ! function_exists( 'media_handle_sideload' ) ) {
+        require_once( ABSPATH . 'wp-admin/includes/media.php' );
+        require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        require_once( ABSPATH . 'wp-admin/includes/image.php' );
+        dsrw_write_log( '[AutoNews CRON-FEED] ✅ Funciones de medios cargadas manualmente' );
+    }
+    
+    wp_cache_flush();
+    
+    try {
+        dsrw_process_feed_by_index( $feed_index );
+        dsrw_write_log( '[AutoNews CRON-FEED] ✅ Feed #' . $feed_index . ' procesado correctamente' );
+    } catch ( Exception $e ) {
+        dsrw_write_log( '[AutoNews CRON-FEED] ❌ ERROR procesando feed #' . $feed_index . ': ' . $e->getMessage() );
+    }
+    
+    wp_cache_flush();
+    
+    dsrw_write_log( '[AutoNews CRON-FEED] Ejecución finalizada para feed #' . $feed_index );
+    dsrw_write_log( '[AutoNews CRON-FEED] ========================================' );
+}
+
+/**
+ * Registrar dinámicamente los hooks para cada cron individual de feed.
+ * Se ejecuta en 'init' para que estén disponibles cuando WordPress los necesite.
+ */
+function dsrw_register_feed_cron_hooks() {
+    $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
+    $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+    
+    foreach ( $rss_urls as $index => $url ) {
+        $hook_name = 'dsrw_feed_cron_hook_' . $index;
+        // Usamos una closure para pasar el índice del feed al wrapper
+        add_action( $hook_name, function() use ( $index ) {
+            dsrw_cron_execute_single_feed( $index );
+        });
+    }
+}
+add_action( 'init', 'dsrw_register_feed_cron_hooks' );
+
+/**
+ * Programa o reprograma los crons individuales de cada feed.
+ * Se llama desde admin-settings cuando se guardan los ajustes.
+ */
+function dsrw_schedule_feed_crons() {
+    $rss_urls_raw = get_option( 'dsrw_rss_urls', '' );
+    $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
+    $feed_cron_intervals = get_option( 'dsrw_feed_cron_intervals', array() );
+    
+    if ( ! is_array( $feed_cron_intervals ) ) {
+        $feed_cron_intervals = array();
+    }
+    
+    foreach ( $rss_urls as $index => $url ) {
+        $hook_name = 'dsrw_feed_cron_hook_' . $index;
+        $interval = isset( $feed_cron_intervals[ $index ] ) ? $feed_cron_intervals[ $index ] : 'global';
+        
+        // Siempre limpiar el cron individual primero
+        wp_clear_scheduled_hook( $hook_name );
+        
+        // Solo programar si tiene un intervalo propio (no 'global' ni 'disabled')
+        if ( $interval !== 'global' && $interval !== 'disabled' && ! empty( $interval ) ) {
+            $schedule_key = 'dsrw_interval_' . $interval;
+            $result = wp_schedule_event( time(), $schedule_key, $hook_name );
+            if ( $result ) {
+                dsrw_write_log( '[AutoNews] ✅ Cron individual programado para feed #' . $index . ' cada ' . $interval . ' minutos' );
+            } else {
+                dsrw_write_log( '[AutoNews] ❌ Error al programar cron individual para feed #' . $index );
+            }
+        }
+    }
+}

@@ -47,7 +47,7 @@ function dsrw_get_cron_interval_label( $interval ) {
         '60'    => __( '1 hora', 'autonews-rss-rewriter' ),
         '120'   => __( '2 horas', 'autonews-rss-rewriter' ),
         '180'   => __( '3 horas', 'autonews-rss-rewriter' ),
-        '600'   => __( '10 horas', 'autonews-rss-rewriter' ),
+        '360'   => __( '6 horas', 'autonews-rss-rewriter' ),
         '720'   => __( '12 horas', 'autonews-rss-rewriter' ),
         '1440'  => __( '24 horas', 'autonews-rss-rewriter' ),
     );
