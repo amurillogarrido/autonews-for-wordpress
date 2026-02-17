@@ -17,13 +17,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Procesa todos los feeds configurados.
+ * Procesa todos los feeds activos (ejecución manual via AJAX).
+ * Lee el número de artículos por feed individual.
  */
-function dsrw_process_all_feeds(&$logs = null) {
+function dsrw_process_all_feeds_manual(&$logs = null) {
     $rss_urls_raw    = get_option( 'dsrw_rss_urls', '' );
     $openai_api_key  = get_option( 'dsrw_openai_api_key' );
     $openai_api_base = get_option( 'dsrw_openai_api_base', 'https://api.openai.com' );
-    $num_articulos   = (int) get_option( 'dsrw_num_articulos', 5 );
+    $global_num_articulos = (int) get_option( 'dsrw_num_articulos', 5 );
+    $feed_num_articles = get_option( 'dsrw_feed_num_articles', array() );
+    if ( ! is_array( $feed_num_articles ) ) $feed_num_articles = array();
 
     if ( empty( $rss_urls_raw ) || empty( $openai_api_key ) ) {
         dsrw_write_log( '[AutoNews RSS Rewriter] ' . __( 'Faltan datos de configuración (RSS URLs o API Key).', 'autonews-rss-rewriter' ) );
@@ -33,26 +36,19 @@ function dsrw_process_all_feeds(&$logs = null) {
 
     $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
     
-    // Obtener intervalos individuales de cada feed
+    // Solo procesar feeds que no estén deshabilitados
     $feed_cron_intervals = get_option( 'dsrw_feed_cron_intervals', array() );
-    if ( ! is_array( $feed_cron_intervals ) ) {
-        $feed_cron_intervals = array();
-    }
+    if ( ! is_array( $feed_cron_intervals ) ) $feed_cron_intervals = array();
     
-    // Filtrar: solo procesar feeds que usen el cron global (valor 'global' o vacío)
     $feeds_to_process = array();
     foreach ( $rss_urls as $index => $url ) {
-        $feed_interval = isset( $feed_cron_intervals[ $index ] ) ? $feed_cron_intervals[ $index ] : 'global';
-        if ( $feed_interval === 'global' || $feed_interval === '' ) {
+        $interval = isset( $feed_cron_intervals[ $index ] ) ? $feed_cron_intervals[ $index ] : 'disabled';
+        if ( $interval !== 'disabled' ) {
             $feeds_to_process[ $index ] = $url;
         }
     }
     
-    if (is_array($logs)) $logs[] = "🔗 Procesando " . count($feeds_to_process) . " feeds RSS (cron global)...";
-    if (is_array($logs) && count($feeds_to_process) < count($rss_urls)) {
-        $feeds_individuales = count($rss_urls) - count($feeds_to_process);
-        $logs[] = "ℹ️ " . $feeds_individuales . " feed(s) tienen cron individual y se procesan por separado.";
-    }
+    if (is_array($logs)) $logs[] = "🔗 Procesando " . count($feeds_to_process) . " feeds activos...";
     $feed_categories = get_option( 'dsrw_feed_categories', array() );
     $default_author_option = get_option( 'dsrw_default_author', '1' );
     $available_authors = get_users( array(
@@ -64,10 +60,17 @@ function dsrw_process_all_feeds(&$logs = null) {
     $publish_delay_minutes = (int) get_option( 'dsrw_publish_delay', 0 );
 
     foreach ( $feeds_to_process as $index => $url ) {
-        // Se toma la configuración del feed sin modificarla para cada artículo del feed
         $feed_category_setting = isset( $feed_categories[ $index ] ) ? $feed_categories[ $index ] : '';
-        dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs );
+        $num_articulos = isset( $feed_num_articles[ $index ] ) ? intval( $feed_num_articles[ $index ] ) : $global_num_articulos;
+        dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs, $index );
     }
+}
+
+/**
+ * Compatibilidad: dsrw_process_all_feeds sigue existiendo pero llama a la nueva función.
+ */
+function dsrw_process_all_feeds(&$logs = null) {
+    dsrw_process_all_feeds_manual($logs);
 }
 
 /**
@@ -100,7 +103,7 @@ function dsrw_process_all_feeds(&$logs = null) {
 }
 add_action( 'wp_ajax_dsrw_run_feeds', 'dsrw_ajax_run_feeds' );
 
-function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $feed_category_setting, &$base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, &$logs = null ) {
+function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $feed_category_setting, &$base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, &$logs = null, $feed_index = -1 ) {
     if ( empty( $feed_url ) ) {
         return;
     }
@@ -109,6 +112,10 @@ function dsrw_process_single_feed( $feed_url, $api_key, $api_base, $num_items, $
     if ( is_wp_error( $rss ) ) {
         dsrw_write_log( '[AutoNews RSS Rewriter] ' . __( 'Error al leer el RSS: ', 'autonews-rss-rewriter' ) . $rss->get_error_message() );
         dsrw_send_error_email( __( 'AutoNews RSS Rewriter - Error al Leer RSS', 'autonews-rss-rewriter' ), __( 'Error al leer el RSS: ', 'autonews-rss-rewriter' ) . $rss->get_error_message() );
+        // Guardar estado de error
+        if ( $feed_index >= 0 ) {
+            dsrw_update_feed_status( $feed_index, 'error', 0, $rss->get_error_message() );
+        }
         return;
     }
     
@@ -642,6 +649,33 @@ dsrw_write_log( "[AutoNews] ✅ Transient eliminado para hash: $hash" );
             dsrw_write_log( "[AutoNews] ⚠️ Post sin imagen destacada y generador desactivado" );
         }
     }
+
+    // Guardar estado del feed tras completar el procesamiento
+    if ( $feed_index >= 0 ) {
+        dsrw_update_feed_status( $feed_index, 'ok', $published_count, '' );
+    }
+}
+
+/**
+ * Actualiza el estado de un feed en la base de datos.
+ *
+ * @param int    $feed_index Índice del feed.
+ * @param string $result     'ok' o 'error'.
+ * @param int    $count      Número de artículos publicados.
+ * @param string $error_msg  Mensaje de error (si aplica).
+ */
+function dsrw_update_feed_status( $feed_index, $result, $count = 0, $error_msg = '' ) {
+    $feed_status = get_option( 'dsrw_feed_status', array() );
+    if ( ! is_array( $feed_status ) ) $feed_status = array();
+    
+    $feed_status[ $feed_index ] = array(
+        'last_run'    => current_time( 'mysql' ),
+        'last_result' => $result,
+        'last_count'  => $count,
+        'last_error'  => $error_msg,
+    );
+    
+    update_option( 'dsrw_feed_status', $feed_status );
 }
 
 /**
@@ -998,35 +1032,36 @@ function dsrw_get_full_content( $url ) {
     }
 }
 /**
- * Procesa un único feed por su índice.
- * Esta función es utilizada por los crons individuales de cada feed.
+ * Procesa un único feed por su índice (usado por crons individuales).
  *
  * @param int    $feed_index Índice del feed en la lista de URLs RSS.
- * @param array  &$logs (Opcional) Array para registrar logs para AJAX.
+ * @param array  &$logs (Opcional) Array para registrar logs.
  */
 function dsrw_process_feed_by_index( $feed_index, &$logs = null ) {
     $rss_urls_raw    = get_option( 'dsrw_rss_urls', '' );
     $openai_api_key  = get_option( 'dsrw_openai_api_key' );
     $openai_api_base = get_option( 'dsrw_openai_api_base', 'https://api.openai.com' );
-    $num_articulos   = (int) get_option( 'dsrw_num_articulos', 5 );
+    $global_num_articulos = (int) get_option( 'dsrw_num_articulos', 5 );
+    $feed_num_articles = get_option( 'dsrw_feed_num_articles', array() );
+    if ( ! is_array( $feed_num_articles ) ) $feed_num_articles = array();
 
     if ( empty( $rss_urls_raw ) || empty( $openai_api_key ) ) {
-        dsrw_write_log( '[AutoNews RSS Rewriter] ' . __( 'Faltan datos de configuración (RSS URLs o API Key).', 'autonews-rss-rewriter' ) );
+        dsrw_write_log( '[AutoNews] Faltan datos de configuración.' );
         return;
     }
 
     $rss_urls = array_filter( array_map( 'trim', explode( "\n", $rss_urls_raw ) ) );
-    // Reindexar para asegurar que los índices coincidan
     $rss_urls = array_values( $rss_urls );
     
     if ( ! isset( $rss_urls[ $feed_index ] ) ) {
-        dsrw_write_log( '[AutoNews CRON-FEED] ❌ Feed #' . $feed_index . ' no existe en la configuración.' );
+        dsrw_write_log( '[AutoNews] Feed #' . $feed_index . ' no existe.' );
         return;
     }
 
     $url = $rss_urls[ $feed_index ];
     $feed_categories = get_option( 'dsrw_feed_categories', array() );
     $feed_category_setting = isset( $feed_categories[ $feed_index ] ) ? $feed_categories[ $feed_index ] : '';
+    $num_articulos = isset( $feed_num_articles[ $feed_index ] ) ? intval( $feed_num_articles[ $feed_index ] ) : $global_num_articulos;
     
     $default_author_option = get_option( 'dsrw_default_author', '1' );
     $available_authors = get_users( array(
@@ -1038,8 +1073,8 @@ function dsrw_process_feed_by_index( $feed_index, &$logs = null ) {
     $publish_delay_minutes = (int) get_option( 'dsrw_publish_delay', 0 );
 
     if ( is_array($logs) ) {
-        $logs[] = "🔗 Procesando feed individual #" . $feed_index . ": " . $url;
+        $logs[] = "🔗 Procesando feed #" . $feed_index . ": " . $url . " (" . $num_articulos . " artículos)";
     }
 
-    dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs );
+    dsrw_process_single_feed( $url, $openai_api_key, $openai_api_base, $num_articulos, $feed_category_setting, $base_publish_time, $publish_delay_minutes, $default_author_option, $available_authors, $logs, $feed_index );
 }
