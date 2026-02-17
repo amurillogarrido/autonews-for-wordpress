@@ -32,8 +32,5 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/utilities.php';
 register_activation_hook( __FILE__, 'dsrw_activate_plugin' );
 register_deactivation_hook( __FILE__, 'dsrw_deactivate_plugin' );
 
-// Registrar el hook del cron para el procesamiento de feeds
-add_action( 'dsrw_cron_hook', 'dsrw_process_all_feeds' );
-
 // Carga inicial de idiomas
 // add_action( 'plugins_loaded', 'dsrw_load_textdomain' );
